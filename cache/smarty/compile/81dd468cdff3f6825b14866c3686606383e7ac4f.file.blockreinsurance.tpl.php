@@ -1,6 +1,6 @@
-<?php /* Smarty version Smarty-3.1.8, created on 2012-06-22 12:42:34
+<?php /* Smarty version Smarty-3.1.8, created on 2012-08-29 17:11:00
          compiled from "/web/presta/modules/blockreinsurance/blockreinsurance.tpl" */ ?>
-<?php /*%%SmartyHeaderCode:17089233774fe44c1ad525d8-21052572%%*/if(!defined('SMARTY_DIR')) exit('no direct access allowed');
+<?php /*%%SmartyHeaderCode:1557363103503e31046c48f7-79232876%%*/if(!defined('SMARTY_DIR')) exit('no direct access allowed');
 $_valid = $_smarty_tpl->decodeProperties(array (
   'file_dependency' => 
   array (
@@ -11,7 +11,7 @@ $_valid = $_smarty_tpl->decodeProperties(array (
       2 => 'file',
     ),
   ),
-  'nocache_hash' => '17089233774fe44c1ad525d8-21052572',
+  'nocache_hash' => '1557363103503e31046c48f7-79232876',
   'function' => 
   array (
   ),
@@ -24,9 +24,9 @@ $_valid = $_smarty_tpl->decodeProperties(array (
   ),
   'has_nocache_code' => false,
   'version' => 'Smarty-3.1.8',
-  'unifunc' => 'content_4fe44c1ad812e8_51611640',
+  'unifunc' => 'content_503e31046faf44_81652240',
 ),false); /*/%%SmartyHeaderCode%%*/?>
-<?php if ($_valid && !is_callable('content_4fe44c1ad812e8_51611640')) {function content_4fe44c1ad812e8_51611640($_smarty_tpl) {?><?php if (!is_callable('smarty_modifier_escape')) include '/web/presta/tools/smarty/plugins/modifier.escape.php';
+<?php if ($_valid && !is_callable('content_503e31046faf44_81652240')) {function content_503e31046faf44_81652240($_smarty_tpl) {?><?php if (!is_callable('smarty_modifier_escape')) include '/web/presta/tools/smarty/plugins/modifier.escape.php';
 ?>
 <?php if (count($_smarty_tpl->tpl_vars['infos']->value)>0){?>
 <!-- MODULE Block reinsurance -->

@@ -1,13 +1,13 @@
 <?php
 /**
-* The Auth Social Module class provides social authentication and customer account 
+* The Auth Social Module class provides social authentication and customer account
 * creation using social networks. Currently works only for Facebook.
 * Dev Api Key for FB
 * 306979302708349
 * 23dab46b16d2af8b8d8f9939f696576e
 *
 * @copyright  Personera
-* @see        
+* @see
 * @author     Shadley Wentzel <shadley@personera.com>
 * @package    Authsocial PS
 */
@@ -34,9 +34,9 @@ class AuthSocialPS extends Module
 
     // if (!Configuration::get('AUTH_SOCIAL_PS_NAME'))
     // {
-    //   $this->warning = $this->l('No name provided');  
+    //   $this->warning = $this->l('No name provided');
     // }
-        
+
   }
 
   public function install()
@@ -91,7 +91,7 @@ class AuthSocialPS extends Module
 
   public function uninstall()
   {
-    # Delete configuration      
+    # Delete configuration
     return (parent::uninstall() AND $this->unregisterHook(Hook::get('rightColumn')) AND $this->unregisterHook(Hook::get('top'))  AND $this->removeTbl() );
   }
 
@@ -108,7 +108,7 @@ class AuthSocialPS extends Module
     Db::getInstance()->Execute('DELETE FROM `'._DB_PREFIX_.'configuration` WHERE `name` = "FB_SECRET";');
     Db::getInstance()->Execute('DROP TABLE `'._DB_PREFIX_.'authentication_methods`;');
     Db::getInstance()->Execute('DROP TABLE `'._DB_PREFIX_.'customer_authentications`;');
-    return true;  
+    return true;
   }
 
   public function getContent()
@@ -121,13 +121,13 @@ class AuthSocialPS extends Module
         $errors[] = $this->l('Invalid Facebook AppID');
       else
         Configuration::updateValue('FB_APPID', $appid);
-        
+
       $fbsecret = (Tools::getValue('fbsecret'));
       if (!$fbsecret)
         $errors[] = $this->l('Invalid Facebook App Secret');
       else
         Configuration::updateValue('FB_SECRET', $fbsecret);
-        
+
       if (isset($errors) AND sizeof($errors))
         $output .= $this->displayError(implode('<br />', $errors));
       else
@@ -157,12 +157,13 @@ class AuthSocialPS extends Module
         <center><input type="submit" name="submitFBKey" value="'.$this->l('Save').'" class="button" /></center>
       </fieldset>
     </form>';
+
     return $output;
   }
 
   public function hookHeader()
   {
-      Tools::addCSS($this->_path.'authsocialps.css', 'all');
+      $this->context->controller->addCSS($this->_path.'authsocialps.css', 'all');
   }
 
 
@@ -175,15 +176,15 @@ class AuthSocialPS extends Module
    */
   public function hookTop($params)
   {
-      global $smarty, $cookie; 
+      global $smarty, $cookie;
 
       $this->context->controller->addCSS($this->_path.'css/authsocialps_top.css');
 
       $smarty->assign(array(
-        'appid' => (Configuration::get('FB_APPID', null, $this->context->shop->id_group_shop, $this->context->shop->id)),
-        'fbsecret' => (Configuration::get('FB_SECRET', null, $this->context->shop->id_group_shop, $this->context->shop->id)),
-        'logged' => $cookie->isLogged(),
-      )); 
+        'appid' => (Configuration::get('FB_APPID', null, $this->context->shop->id_shop_group, $this->context->shop->id)),
+        'fbsecret' => (Configuration::get('FB_SECRET', null, $this->context->shop->id_shop_group, $this->context->shop->id)),
+        'logged' => $this->context->customer->isLogged(),
+      ));
 
       return $this->display(__FILE__,'authsocialps_top.tpl');
   }

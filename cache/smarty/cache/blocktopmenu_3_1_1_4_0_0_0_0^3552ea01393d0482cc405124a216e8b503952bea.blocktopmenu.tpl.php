@@ -11,16 +11,16 @@ $_valid = $_smarty_tpl->decodeProperties(array (
   ),
   'nocache_hash' => '2444452284fe44c1a071611-39035702',
   'version' => 'Smarty-3.1.8',
-  'unifunc' => 'content_4fef6fb70422c4_41550105',
+  'unifunc' => 'content_503bf3878baac1_27036407',
   'has_nocache_code' => false,
   'cache_lifetime' => 3600,
 ),true); /*/%%SmartyHeaderCode%%*/?>
-<?php if ($_valid && !is_callable('content_4fef6fb70422c4_41550105')) {function content_4fef6fb70422c4_41550105($_smarty_tpl) {?>	</div>
+<?php if ($_valid && !is_callable('content_503bf3878baac1_27036407')) {function content_503bf3878baac1_27036407($_smarty_tpl) {?>	</div>
 
 	<!-- Menu -->
 	<div class="sf-contener clearfix">
 		<ul class="sf-menu clearfix">
-			<li ><a href="http://presta.localhost/relax/index.php">Home</a><ul><li ><a href="http://presta.localhost/relax/index.php?id_category=3&controller=category">iPods</a></li><li  class="sfHoverForce"><a href="http://presta.localhost/relax/index.php?id_category=4&controller=category">Accessories</a></li><li ><a href="http://presta.localhost/relax/index.php?id_category=5&controller=category">Laptops</a></li></ul></li><li ><a href="http://presta.localhost/relax/index.php?id_category=3&controller=category">iPods</a></li><li  class="sfHoverForce"><a href="http://presta.localhost/relax/index.php?id_category=4&controller=category">Accessories</a></li>
+			<li ><a href="http://presta.localhost/relax/">Home</a><ul><li ><a href="http://presta.localhost/relax/3-music-ipods">iPods</a></li><li  class="sfHoverForce"><a href="http://presta.localhost/relax/4-accessories-ipod">Accessories</a></li><li ><a href="http://presta.localhost/relax/5-laptops">Laptops</a></li></ul></li><li ><a href="http://presta.localhost/relax/3-music-ipods">iPods</a></li><li  class="sfHoverForce"><a href="http://presta.localhost/relax/4-accessories-ipod">Accessories</a></li>
 					</ul>
 		<div class="sf-right">&nbsp;</div>
 

@@ -101,13 +101,13 @@ class AuthsocialpsFacebookModuleFrontController extends ModuleFrontController
 
       # Redirect back
       $back_url = Tools::getValue('callling_url');
-      $this->printpre($back_url);
-      $this->printpre($this->context->customer);
+      // $this->printpre($back_url);
+      // $this->printpre($this->context->customer);
       $mod_rewrite_active = Tools::modRewriteActive();
-      $this->printpre("mod_rewrite_active has : ".$mod_rewrite_active);
+      // $this->printpre("mod_rewrite_active has : ".$mod_rewrite_active);
       $shopurl = new ShopUrl('','',$this->context->customer->id_shop);
-      $this->printpre($shopurl);
-      $this->printpre(Tools::getValue('shop_name'));
+      // $this->printpre($shopurl);
+      // $this->printpre(Tools::getValue('shop_name'));
       // die();
       Tools::redirect(html_entity_decode($back_url));
       # Tools::redirect('index.php?controller=order');

@@ -1,12 +1,14 @@
 <!-- Block authsocialps -->
 <div id="header_authsocial" style="float:right;clear:both;padding-top:10px;">
-        <div id="fb-root"></div>
-        {if !$logged}
-        <div id="oauth_button" style="display:block;">
-          <fb:login-button scope="user_about_me,user_photos,user_birthday,friends_photos,email" onlogin="clickFB();" show-faces="false" width="200" max-rows="1"></fb:login-button>
-          
-        </div>
-      {/if}
+  <div id="fb-root"></div>
+  {if !$logged}
+    <div id="oauth_button" style="display:block;">
+      <fb:login-button scope="user_about_me,user_photos,user_birthday,friends_photos,email" onlogin="clickFB();" show-faces="false" width="200" max-rows="1"></fb:login-button>
+      
+    </div>
+  {else}
+    <img src="http://graph.facebook.com/{fb_uid}/picture" />
+  {/if}
 </div>
 <script>
   window.fbAsyncInit = function() {

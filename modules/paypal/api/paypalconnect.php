@@ -81,7 +81,8 @@ class PayPalConnect extends Paypal
 		return (isset($result) ? $result : false);
 	}
 
-	private function _makeHeader($host, $script, $lenght)
+	private function 
+	($host, $script, $lenght)
 	{
 		$header =	'POST '.strval($script).' HTTP/1.0'."\r\n" .
 					'Host: '.strval($host)."\r\n".

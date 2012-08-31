@@ -26,13 +26,14 @@
 */
 
 /* Debug only */
-@ini_set('display_errors', 'off');
-define('_PS_DEBUG_SQL_', false);
+@ini_set('display_errors', 'on');
+
+define('_PS_DEBUG_SQL_', true);
 
 $start_time = microtime(true);
 
 /* Compatibility warning */
-define('_PS_DISPLAY_COMPATIBILITY_WARNING_', false);
+define('_PS_DISPLAY_COMPATIBILITY_WARNING_', true);
 
 /* SSL configuration */
 define('_PS_SSL_PORT_', 443);
@@ -147,8 +148,8 @@ else
 	else
 	{
 		$customer = new Customer();
-		
-		// Change the default group 
+
+		// Change the default group
 		if (Group::isFeatureActive())
 			$customer->id_default_group = Configuration::get('PS_UNIDENTIFIED_GROUP');
 	}

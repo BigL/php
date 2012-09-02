@@ -14,7 +14,6 @@
 
 if (!defined('_PS_VERSION_'))
   exit;
-
 class AuthSocialPS extends Module
 {
 
@@ -31,12 +30,6 @@ class AuthSocialPS extends Module
     $this->displayName = $this->l('Social Authentication');
     $this->description = $this->l('This module provides Social Authentication.');
     $this->confirmUninstall = $this->l('Are you sure you want to uninstall?');
-
-    // if (!Configuration::get('AUTH_SOCIAL_PS_NAME'))
-    // {
-    //   $this->warning = $this->l('No name provided');
-    // }
-
   }
 
   public function install()
@@ -174,19 +167,28 @@ class AuthSocialPS extends Module
    * @return Template to show the social logins
    *
    */
-  public function hookTop($params)
-  {
-      global $smarty, $cookie;
+    public function hookTop($params)
+    {
+        global $smarty, $cookie;
 
-      $this->context->controller->addCSS($this->_path.'css/authsocialps_top.css');
+        $this->context->controller->addCSS($this->_path.'css/authsocialps_top.css');
 
-      $smarty->assign(array(
+
+        require_once (_PS_MODULE_DIR_.'authsocialps/classes/CustomerAuthentication.php');
+        $db_Customerauth = new CustomerAuthentication();
+
+        $fb_user_data = $db_Customerauth->getByCustomerId($this->context->customer->id, $this->context->customer->id_shop);
+        //echo "<pre>";print_r($fb_user_data);print_r($this->context->customer);
+        //die();
+
+        $smarty->assign(array(
         'appid' => (Configuration::get('FB_APPID', null, $this->context->shop->id_shop_group, $this->context->shop->id)),
         'fbsecret' => (Configuration::get('FB_SECRET', null, $this->context->shop->id_shop_group, $this->context->shop->id)),
+        'fb_uid' => $fb_user_data->uid,
         'logged' => $this->context->customer->isLogged(),
-      ));
+        ));
 
-      return $this->display(__FILE__,'authsocialps_top.tpl');
-  }
+        return $this->display(__FILE__,'authsocialps_top.tpl');
+    }
 
 }

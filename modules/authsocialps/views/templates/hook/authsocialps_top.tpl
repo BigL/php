@@ -7,7 +7,7 @@
       
     </div>
   {else}
-    <img src="http://graph.facebook.com/{fb_uid}/picture" />
+    <img src="http://graph.facebook.com/{$fb_uid}/picture" />
   {/if}
 </div>
 <script>

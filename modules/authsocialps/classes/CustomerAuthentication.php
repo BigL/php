@@ -52,7 +52,7 @@ class CustomerAuthentication extends ObjectModel
 	{
 		$this->id_shop = ($this->id_shop) ? $this->id_shop : Context::getContext()->shop->id;
 		$this->id_group_shop = ($this->id_group_shop) ? $this->id_group_shop : Context::getContext()->shop->id_group_shop;
-		
+
 	 	$success = parent::add($autodate, $null_values);
 		return $success;
 	}
@@ -75,4 +75,30 @@ class CustomerAuthentication extends ObjectModel
 		return (parent::delete());
 	}
 
+	/**
+	 * Return all customer authentication method by customer
+	 *
+	 * @param integer $id_customer Id of customer
+	 * @param integer $id_shop Id of shop
+	 * @param string $passwd Password is also checked if specified
+	 * @return CustomerAuthentication representaion
+	 */
+	public static function getByCustomerId($id_customer, $id_shop)
+	{
+		$sql = 'SELECT *
+				FROM `'._DB_PREFIX_.'customer_authentications`
+				WHERE `id_customer` = \''.pSQL($id_customer).'\' AND `id_shop` = \''.pSQL($id_shop).'\'';
+		$result = Db::getInstance()->getRow($sql);
+
+		if (!$result)
+			return false;
+
+		$retrieved_customer_authentication = new CustomerAuthentication();
+		$retrieved_customer_authentication->id = $result['id_customer_authentication'];
+		foreach ($result as $key => $value)
+			if (key_exists($key, $retrieved_customer_authentication))
+				$retrieved_customer_authentication->{$key} = $value;
+
+		return $retrieved_customer_authentication;
+	}
 }

@@ -1,2 +1,9 @@
+<!-- Production example -->
 <?xml version="1.0" encoding="UTF-8"?>
-<config applicationId="306979302708349" baseBackgroundImageURL="http://bg-pb.personera.com/" baseBackgroundImageURLTemplate="http://bg-pb.personera.com/{0}.png" baseServiceURL="http://photobooks-api.personera.com/personera-rest-v2" baseImageUploadURL="http://photobooks-api.personera.com/personera-rest-v2/images/uploadURL/"/>
+<config
+applicationId="306979302708349"
+baseBackgroundImageURL="http://bg-pb.personera.com/"
+baseBackgroundImageURLTemplate="http://bg-pb.personera.com/{0}.png"
+baseServiceURL="http://photobooks-api.personera.com/personera-rest"
+baseImageUploadURL="http://photobooks-api.personera.com/personera-rest/images/uploadURL/"
+/>

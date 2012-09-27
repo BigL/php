@@ -1,3 +1,4 @@
+ 
 <style type="text/css" media="screen">
     object:focus { outline:none; }
 </style>
@@ -5,18 +6,16 @@
 <script type="text/javascript"
     src="//ajax.googleapis.com/ajax/libs/swfobject/2.2/swfobject.js"></script>
 <script type="text/javascript" src="/js/lib/flash_detect_min.js"></script>
-
+ <div id="ig-root"></div>
 <script type="text/javascript">
     $(document).ready(function() {
 
         embedSwf();
 
         function embedSwf(){ 
-                    
-            //These flashvars pass various pieces of information from the php to the photobook swf:
+                   
+            // These flashvars pass various pieces of information from the php to the photobook swf:
             var flashvars = {
-                fbUid: "670161960", 
-                fbAccessToken : 'AAAEXMjBKlH0BAIx1m6jtv0i0e80ZB6BGiiLuFayN6ibW1d9CDWCGVvSeOZAIIjFZCrIwZB3SgZAyuPNC8vF61ZABMSAa9jfpnjBbqR8UgkWQZDZD',
                 config: '{$base_dir}modules/productcustomizationps/swf/photobook/config.xml',
                 designId: '{$design_id}',
                 startEditing: 'false',
@@ -35,14 +34,30 @@
                 name: 'personera-swf', 
                 id: 'personera-swf'
             };
-
-            swfobject.embedSWF("{$base_dir}modules/productcustomizationps/swf/photobook/PersoneraPhotoBook-v2-1.swf", "personera-swf", "100%", "600", "10.2", "{$base_dir}modules/productcustomizationps/swf/photobook/playerProductInstall.swf", flashvars, params, attributes);
+            {if ( $logged )}
+            swfobject.embedSWF("{$base_dir}modules/productcustomizationps/swf/photobook/PersoneraPhotoBook-v2-2.swf", "personera-swf", "100%", "600", "10.2", "{$base_dir}modules/productcustomizationps/swf/photobook/playerProductInstall.swf", flashvars, params, attributes);
 
             swfobject.createCSS("#personera-swf", "display:block;text-align:left;");
-
+            {/if}
         }
+    
+        window.igAsyncInit = function() {   
+            IG.init({
+                client_id: 'b33717df438d4272a49b99b8d5cb2ee1',
+                logging: true,
+                check_status: false
+            });
+        };
+    
+        (function() {
+            var e = document.createElement('script'); e.async = true;
+            e.src = 'http://personera-public-images.s3.amazonaws.com/photobook/swf/instagram-min.js';
+            document.getElementById('ig-root').appendChild(e);
+        }()
+        );
 
     });
+
 </script>
 {if $logged}
 <div id="personera-swf">
@@ -73,4 +88,13 @@
     <!--
         var selectedCoverType = 1;
     -->
+    function doInstagramLogin() {
+        IG.login(function (response) {
+            if (response.session) {
+                document.getElementById('personera-swf').instagramLoginResultHandler(response.session.access_token);
+            } else {
+                document.getElementById('personera-swf').instagramLoginResultHandler(null);
+             }
+         }, { response_type: 'token' });
+    }
 </script>

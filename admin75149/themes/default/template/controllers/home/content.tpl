@@ -19,7 +19,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 14721 $
+*  @version  Release: $Revision: 17181 $
 *  @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 *}
@@ -44,14 +44,15 @@
 		<p>{l s='To receive PrestaShop update warnings, you need to activate'} <b>allow_url_fopen</b> [<a href="http://www.php.net/manual/{$isoUser}/ref.filesystem.php">{l s='more info on php.net'}</a>]</p>
 		<p>{l s='If you don\'t know how to do this, please contact your hosting provider!'}</p><br />
 	{/if}
+
 {if $employee->bo_show_screencast}
-<div id="adminpresentation" style="display:block;">
+<div id="adminpresentation" style="display:block">
 <h2>{l s='Video'}</h2>
 		<div id="video">
 			<a href="{$protocol}://screencasts.prestashop.com/v1.5/screencast.php?iso_lang={$isoUser}" id="screencast_fancybox"><img height="128" width="220" src="../img/admin/preview_fr.jpg" /><span class="mask-player"></span></a>
 		</div>
 			<div id="video-content">
-			<p>{l s='Take part in the e-commerce adventure with PrestaShop, the fast, powerful, and customizable e-commerce solution. With more than 275 features, PrestaShop will help you create a world of opportunities without limits. Discover the solution that has already conquered more than 120,000 merchants worldwide!'}</p>
+			<p>{l s='Take part in the e-commerce adventure with PrestaShop, the fast, powerful, and customizable e-commerce solution. With more than 275 features, PrestaShop will help you create a world of opportunities without limits. Discover the solution that already powers more than 120,000 active stores worldwide!'}</p>
 			</div>
 	<div id="footer_iframe_home">
 		<!--<a href="#">{l s='View more video tutorials'}</a>-->

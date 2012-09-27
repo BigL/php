@@ -83,7 +83,7 @@
 					}
 				});
 			}
-			perfect_access_js_gestion(this, perm, id_tab, tabsize, tabnumber, table, '{$id_tab_access}');
+			perfect_access_js_gestion(this, perm, id_tab, tabsize, tabnumber, table);
 
 			$.ajax({
 				url: "{$link->getAdminLink('AdminAccess')}",
@@ -122,15 +122,16 @@
 			var perm = tout[1];
 			var id_profile = tout[2];
 			var enabled = $(this).is(':checked') ? 1 : 0;
+			var enabled_attr = $(this).is(':checked') ? true : false;
 			var table = 'table#table_module_'+id_profile;
 
 			if (id_module == -1)
 				$(table+' .ajax-ma-'+perm).each(function(key, value) {
-					$(this).attr("checked", enabled);
+					$(this).attr("checked", enabled_attr);
 				});
 			else if (!enabled)
 				$(table+' #ajax-ma-'+perm+'-master').each(function(key, value) {
-					$(this).attr("checked", enabled);
+					$(this).attr("checked", enabled_attr);
 				});
 
 			$.ajax({
@@ -203,7 +204,7 @@
 				<table class="table float" cellspacing="0" style="margin-right:50px" id="table_{$profile.id_profile}">
 					<tr>
 						<th class="center">
-							{l s='Tabs'}
+							{l s='Menus'}
 						</th>
 						<th class="center">
 							<input type="checkbox" name="1" id="viewall"
@@ -253,7 +254,7 @@
 					</tr>
 					{if !count($tabs)}
 						<tr>
-							<td colspan="6">{l s='No tab'}</td>
+							<td colspan="6">{l s='No menu'}</td>
 						</tr>
 					{else}
 						{foreach $tabs AS $tab}

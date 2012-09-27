@@ -34,17 +34,23 @@ class AdminStatusesControllerCore extends AdminController
 		$this->lang = true;
 		$this->deleted = false;
 		$this->colorOnBackground = false;
+		$this->bulk_actions = array('delete' => array('text' => $this->l('Delete selected'), 'confirm' => $this->l('Delete selected items?')));
 		$this->context = Context::getContext();
+		$this->imageType = 'gif';
+		$this->fieldImageSettings = array(
+			'name' => 'icon',
+			'dir' => 'os'
+		);
 		parent::__construct();
 	}
-	
+
 	public function init()
 	{
 		if (Tools::isSubmit('addorder_return_state'))
 			$this->display = 'add';
 		if (Tools::isSubmit('updateorder_return_state'))
 			$this->display = 'edit';
-		
+
 		parent::init();
 	}
 	
@@ -53,11 +59,6 @@ class AdminStatusesControllerCore extends AdminController
 	 */
 	protected function initOrderStatutsList()
 	{
-		$this->imageType = 'gif';
-		$this->fieldImageSettings = array(
-			'name' => 'icon',
-			'dir' => 'os'
-		);
 		$this->addRowAction('edit');
 		$this->addRowAction('delete');
 		
@@ -173,8 +174,9 @@ class AdminStatusesControllerCore extends AdminController
 		
 		if ($order_return_state->id)
 			$helper->fields_value = array(
-				'name' => $this->getFieldValue($order_return_state, 'name')
-				);
+				'name' => $this->getFieldValue($order_return_state, 'name'),
+				'color' => $this->getFieldValue($order_return_state, 'color'),
+			);
 		else
 			$helper->fields_value = $this->getFieldsValue($order_return_state);
 		$helper->toolbar_btn = $this->toolbar_btn;
@@ -375,6 +377,13 @@ class AdminStatusesControllerCore extends AdminController
 					'required' => true,
 					'hint' => $this->l('Invalid characters: numbers and').' !<>,;?=+()@#"�{}_$%:',
 					'desc' => $this->l('Order return status name')
+				),
+				array(
+					'type' => 'color',
+					'label' => $this->l('Color:'),
+					'name' => 'color',
+					'size' => 30,
+					'desc' => $this->l('Status will be highlighted in this color. HTML colors only (e.g.').' "lightblue", "#CC6600")'
 				)
 			),
 			'submit' => array(
@@ -382,7 +391,6 @@ class AdminStatusesControllerCore extends AdminController
 				'class' => 'button'
 			)
 		);
-		
 		return $helper->generateForm($this->fields_form);
 	}
 	
@@ -413,6 +421,7 @@ class AdminStatusesControllerCore extends AdminController
 			// Create Object OrderReturnState
 			$order_return_state = new OrderReturnState((int)$id_order_return_state);
 
+			$order_return_state->color = Tools::getValue('color');
 			$order_return_state->name = array();
 			$languages = Language::getLanguages(false);
 				foreach ($languages as $language)

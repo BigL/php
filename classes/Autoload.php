@@ -20,7 +20,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 15527 $
+*  @version  Release: $Revision: 17126 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -93,32 +93,24 @@ class Autoload
 			// If requested class does not exist, load associated core class
 			if (isset($this->index[$classname]) && !$this->index[$classname])
 			{
-				require_once($this->root_dir.$this->index[$classname.'Core']);
-				if (file_exists($this->root_dir.'override/'.$this->index[$classname.'Core']))
-				{
-		 			$this->generateIndex();
-		 			require_once($this->root_dir.$this->index[$classname]);
-				}
-				else
-				{
-					// Since the classname does not exists (we only have a classCore class), we have to emulate the declaration of this class
-					$class_infos = new ReflectionClass($classname.'Core');
-					eval(($class_infos->isAbstract() ? 'abstract ' : '').'class '.$classname.' extends '.$classname.'Core {}');
-				}
+				require($this->root_dir.$this->index[$classname.'Core']);
+
+				// Since the classname does not exists (we only have a classCore class), we have to emulate the declaration of this class
+				$class_infos = new ReflectionClass($classname.'Core');
+				eval(($class_infos->isAbstract() ? 'abstract ' : '').'class '.$classname.' extends '.$classname.'Core {}');
 			}
 			else
 			{
 				// request a non Core Class load the associated Core class if exists
 				if (isset($this->index[$classname.'Core']))
 					require_once($this->root_dir.$this->index[$classname.'Core']);
-
 				if (isset($this->index[$classname]))
 					require_once($this->root_dir.$this->index[$classname]);
 			}
 		}
 		// Call directly ProductCore, ShopCore class
 		else
-			require_once($this->root_dir.$this->index[$classname]);
+			require($this->root_dir.$this->index[$classname]);
 	}
 
 	/**
@@ -185,7 +177,7 @@ class Autoload
 					$classes = array_merge($classes, $this->getClassesFromDir($path.$file.'/'));
 				else if (substr($file, -4) == '.php')
 				{
-			 		$content = file_get_contents($this->root_dir.$path.$file);
+					$content = file_get_contents($this->root_dir.$path.$file);
 			 		$pattern = '#\W((abstract\s+)?class|interface)\s+(?P<classname>'.basename($file, '.php').'(Core)?)'
 			 					.'(\s+extends\s+[a-z][a-z0-9_]*)?(\s+implements\s+[a-z][a-z0-9_]*(\s*,\s*[a-z][a-z0-9_]*)*)?\s*\{#i';
 			 		if (preg_match($pattern, $content, $m))

@@ -181,7 +181,7 @@ class AdminStoresControllerCore extends AdminController
 				),
 				array(
 					'type' => 'text',
-					'label' => $this->l('Postcode / Zip Code'),
+					'label' => $this->l('Postal Code/Zip Code'),
 					'name' => 'postcode',
 					'size' => 6,
 					'required' => true
@@ -224,7 +224,7 @@ class AdminStoresControllerCore extends AdminController
 					'required' => true,
 					'size' => 11,
 					'maxlength' => 12,
-					'desc' => $this->l('Store coordinates (e.g. 45.265469 / -47.226478)')
+					'desc' => $this->l('Store coordinates (e.g. 45.265469/-47.226478)')
 				),
 				array(
 					'type' => 'text',
@@ -286,6 +286,15 @@ class AdminStoresControllerCore extends AdminController
 				'class' => 'button'
 			)
 		);
+		
+		if (Shop::isFeatureActive())
+		{
+			$this->fields_form['input'][] = array(
+				'type' => 'shop',
+				'label' => $this->l('Shop association:'),
+				'name' => 'checkBoxShopAsso',
+			);
+		}
 
 		if (!($obj = $this->loadObject(true)))
 			return;
@@ -311,8 +320,7 @@ class AdminStoresControllerCore extends AdminController
 			'image' => $image ? $image : false,
 			'size' => $image ? filesize(_PS_STORE_IMG_DIR_.'/'.$obj->id.'.jpg') / 1000 : false,
 			'days' => $days,
-			'hours' => isset($hours_unserialized) ? $hours_unserialized : false,
-			'id_country' => Configuration::get('PS_COUNTRY_DEFAULT')
+			'hours' => isset($hours_unserialized) ? $hours_unserialized : false
 		);
 
 		return parent::renderForm();
@@ -324,7 +332,8 @@ class AdminStoresControllerCore extends AdminController
 		{
 			/* Cleaning fields */
 			foreach ($_POST as $kp => $vp)
-				$_POST[$kp] = trim($vp);
+				if ($kp != 'checkBoxShopAsso_store')
+					$_POST[$kp] = trim($vp);
 
 			/* If the selected country does not contain states */
 			$id_state = (int)Tools::getValue('id_state');
@@ -357,7 +366,7 @@ class AdminStoresControllerCore extends AdminController
 					$zip_regexp = str_replace('L', '[a-zA-Z]', $zip_regexp);
 					$zip_regexp = str_replace('C', $country->iso_code, $zip_regexp);
 					if (!preg_match($zip_regexp, $postcode))
-						$this->errors[] = Tools::displayError('Your Postcode / Zip code code is incorrect.').'<br />'.Tools::displayError('Must be typed as follows:').' '.
+						$this->errors[] = Tools::displayError('Your Postal Code/Zip Code is incorrect.').'<br />'.Tools::displayError('Must be typed as follows:').' '.
 											str_replace(
 												'C',
 												$country->iso_code,
@@ -373,9 +382,9 @@ class AdminStoresControllerCore extends AdminController
 											);
 				}
 				else if ($zip_code_format)
-					$this->errors[] = Tools::displayError('Postcode / Zip code required.');
+					$this->errors[] = Tools::displayError('Postal Code/Zip Code required.');
 				else if ($postcode && !preg_match('/^[0-9a-zA-Z -]{4,9}$/ui', $postcode))
-					$this->errors[] = Tools::displayError('Your Postcode / Zip code code is incorrect.');
+					$this->errors[] = Tools::displayError('Your Postal Code/Zip Code is incorrect.');
 			}
 
 			/* Store hours */
@@ -387,8 +396,8 @@ class AdminStoresControllerCore extends AdminController
 
 		if (!count($this->errors))
 			parent::postProcess();
-        else
-            $this->display = 'add';
+		else
+			$this->display = 'add';
 	}
 
 	protected function postImage($id)
@@ -458,7 +467,7 @@ class AdminStoresControllerCore extends AdminController
 				'type' => 'text'
 			),
 			'PS_SHOP_CODE' => array(
-				'title' => $this->l('Postcode / Zip code'),
+				'title' => $this->l('Postal Code/Zip code'),
 				'validation' => 'isGenericName',
 				'size' => 6,
 				'type' => 'text'
@@ -505,28 +514,30 @@ class AdminStoresControllerCore extends AdminController
 
 	protected function _buildOrderedFieldsShop($formFields)
 	{
-		$associatedOrderKey = array(
-			'PS_SHOP_NAME' => 'company',
-			'PS_SHOP_ADDR1' => 'address1',
-			'PS_SHOP_ADDR2' => 'address2',
-			'PS_SHOP_CITY' => 'city',
-			'PS_SHOP_STATE_ID' => 'State:name',
-			'PS_SHOP_CODE' => 'postcode',
-			'PS_SHOP_COUNTRY_ID' => 'Country:name',
-			'PS_SHOP_PHONE' => 'phone');
+		// You cannot do that, because the fields must be sorted for the country you've selected.
+		// Simple example: the current country is France, where we don't display the state. You choose "US" as a country in the form. The state is not dsplayed at the right place...
+		
+		// $associatedOrderKey = array(
+			// 'PS_SHOP_NAME' => 'company',
+			// 'PS_SHOP_ADDR1' => 'address1',
+			// 'PS_SHOP_ADDR2' => 'address2',
+			// 'PS_SHOP_CITY' => 'city',
+			// 'PS_SHOP_STATE_ID' => 'State:name',
+			// 'PS_SHOP_CODE' => 'postcode',
+			// 'PS_SHOP_COUNTRY_ID' => 'Country:name',
+			// 'PS_SHOP_PHONE' => 'phone');
+		// $fields = array();
+		// $orderedFields = AddressFormat::getOrderedAddressFields(Configuration::get('PS_SHOP_COUNTRY_ID'), false, true);
+		// foreach ($orderedFields as $lineFields)
+			// if (($patterns = explode(' ', $lineFields)))
+				// foreach ($patterns as $pattern)
+					// if (($key = array_search($pattern, $associatedOrderKey)))
+						// $fields[$key] = $formFields[$key];
+		// foreach ($formFields as $key => $value)
+			// if (!isset($fields[$key]))
+				// $fields[$key] = $formFields[$key];
 
-		$fields = array();
-		$orderedFields = AddressFormat::getOrderedAddressFields(Configuration::get('PS_SHOP_COUNTRY_ID'), false, true);
-
-		foreach ($orderedFields as $lineFields)
-			if (($patterns = explode(' ', $lineFields)))
-				foreach ($patterns as $pattern)
-					if (($key = array_search($pattern, $associatedOrderKey)))
-						$fields[$key] = $formFields[$key];
-		foreach ($formFields as $key => $value)
-			if (!isset($fields[$key]))
-				$fields[$key] = $formFields[$key];
-
+		$fields = $formFields;
 		$this->fields_options['contact'] = array(
 			'title' =>	$this->l('Contact details'),
 			'icon' =>	'tab-contact',

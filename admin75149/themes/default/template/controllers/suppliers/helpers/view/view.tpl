@@ -19,7 +19,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 13573 $
+*  @version  Release: $Revision: 16264 $
 *  @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 *}
@@ -49,13 +49,13 @@
 		<h3><a href="?tab=AdminProducts&id_product={$product->id}&updateproduct&token={getAdminToken tab='AdminProducts'}">{$product->name}</a></h3>
 		<table border="0" cellpadding="0" cellspacing="0" class="table" style="width:100%;">
 			<colgroup>
-				<col></col>
-				<col width="190"></col>
-				<col width="190"></col>
-				<col width="80"></col>
-				<col width="80"></col>
-				<col width="80"></col>
-				<col width="80"></col>
+				<col>
+				<col width="190">
+				<col width="190">
+				<col width="80">
+				<col width="80">
+				<col width="80">
+				<col width="80">
 			</colgroup>
 			<tr>
 				<th style="height:40px;">{l s='Attribute name'}</th>

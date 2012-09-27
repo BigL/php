@@ -20,7 +20,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 15776 $
+*  @version  Release: $Revision: 17120 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -46,7 +46,7 @@ class TranslateCore
 		// @todo remove global keyword in translations files and use static
 		global $_LANGADM;
 
-		if (!isset($modules_tabs))
+		if ($modules_tabs === null)
 			$modules_tabs = Tab::getModuleTabList();
 
 		if ($_LANGADM == null)
@@ -72,10 +72,12 @@ class TranslateCore
 		else
 			$str = Translate::getGenericAdminTranslation($string, $key, $_LANGADM);
 
-		$str = $htmlentities ? htmlentities($str, ENT_QUOTES, 'utf-8') : $str;
+		if ($htmlentities)
+			$str = htmlentities($str, ENT_QUOTES, 'utf-8');
 		$str = str_replace('"', '&quot;', $str);
 
-		$str = Translate::checkAndReplaceArgs($str, $sprintf);
+		if ($sprintf !== null)
+			$str = Translate::checkAndReplaceArgs($str, $sprintf);
 
 		return ($addslashes ? addslashes($str) : stripslashes($str));
 	}
@@ -124,43 +126,27 @@ class TranslateCore
 		// $translations_merged is a cache of wether a specific module's translations have already been added to $_MODULES
 		static $translations_merged = array();
 
-		if ($module instanceof Module)
+		$name = $module instanceof Module ? $module->name : $module;
+		if (!isset($translations_merged[$name]))
 		{
-			$name = $module->name;
-			$local_path = $module->getLocalPath();
-		}
-		else
-		{
-			$name = $module;
-			$local_path = _PS_MODULE_DIR_.$module.'/';
-		}
+			$filesByPriority = array(
+				// Translations in theme
+				_PS_THEME_DIR_.'modules/'.$name.'/translations/'.Context::getContext()->language->iso_code.'.php', 
+				_PS_THEME_DIR_.'modules/'.$name.'/'.Context::getContext()->language->iso_code.'.php', 
+				// PrestaShop 1.5 translations
+				_PS_MODULE_DIR_.$name.'/translations/'.Context::getContext()->language->iso_code.'.php',
+				// PrestaShop 1.4 translations
+				_PS_MODULE_DIR_.$name.'/'.Context::getContext()->language->iso_code.'.php'
+			);
 
-		// @retrocompatibility with translations files in module root
-		// @since 1.5 modules have a translations/ folder
-		if (Tools::file_exists_cache($local_path.'/translations/'.Context::getContext()->language->iso_code.'.php'))
-			$file = $local_path.'/translations/'.Context::getContext()->language->iso_code.'.php';
-		else
-			$file = $local_path.'/'.Context::getContext()->language->iso_code.'.php';
-
-		// Load translations file if it has not been already done
-		if (!isset($translations_merged[md5($file)]) && Tools::file_exists_cache($file) && include_once($file))
-		{
-			$_MODULES = !empty($_MODULES) ? array_merge($_MODULES, $_MODULE) : $_MODULE;
-			$translations_merged[md5($file)] = true;
-		}
-
-		// Check if translations exists in a current theme
-		if (Tools::file_exists_cache(_PS_THEME_DIR_.'modules/'.$name.'/translations/'.Context::getContext()->language->iso_code.'.php'))
-			$file_theme = _PS_THEME_DIR_.'modules/'.$name.'/translations/'.Context::getContext()->language->iso_code.'.php';
-		else if (Tools::file_exists_cache(_PS_THEME_DIR_.'modules/'.$name.'/'.Context::getContext()->language->iso_code.'.php'))
-			$file_theme = _PS_THEME_DIR_.'modules/'.$name.'/'.Context::getContext()->language->iso_code.'.php';
-		else
-			$file_theme = false;
-
-		if ($file_theme && !isset($translations_merged[md5($file_theme)]) && Tools::file_exists_cache($file_theme) && include_once($file_theme))
-		{
-			$_MODULES = !empty($_MODULES) ? array_merge($_MODULES, $_MODULE) : $_MODULE;
-			$translations_merged[md5($file_theme)] = true;
+			foreach ($filesByPriority as $file)
+				if (Tools::file_exists_cache($file))
+				{
+					include_once($file);
+					$_MODULES = !empty($_MODULES) ? array_merge($_MODULES, $_MODULE) : $_MODULE;
+					$translations_merged[$name] = true;
+					break;
+				}
 		}
 
 		$key = md5(str_replace('\'', '\\\'', $string));
@@ -169,10 +155,10 @@ class TranslateCore
 
 		if (!isset($lang_cache[$cache_key]))
 		{
-
 			if ($_MODULES == null)
 			{
-				$string = Translate::checkAndReplaceArgs($string, $sprintf);
+				if ($sprintf !== null)
+					$string = Translate::checkAndReplaceArgs($string, $sprintf);
 				return str_replace('"', '&quot;', $string);
 			}
 
@@ -189,7 +175,8 @@ class TranslateCore
 			else
 				$ret = stripslashes($string);
 
-			$ret = Translate::checkAndReplaceArgs($ret, $sprintf);
+			if ($sprintf !== null)
+				$ret = Translate::checkAndReplaceArgs($ret, $sprintf);
 
 			$lang_cache[$cache_key] = str_replace('"', '&quot;', $ret);
 		}

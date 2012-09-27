@@ -177,7 +177,7 @@ class CustomerCore extends ObjectModel
 			'max_payment_days' =>			array('type' => self::TYPE_INT, 'validate' => 'isUnsignedInt', 'copy_post' => false),
 			'active' => 					array('type' => self::TYPE_BOOL, 'validate' => 'isBool', 'copy_post' => false),
 			'deleted' => 					array('type' => self::TYPE_BOOL, 'validate' => 'isBool', 'copy_post' => false),
-			'note' => 						array('type' => self::TYPE_STRING, 'validate' => 'isCleanHtml', 'size' => 65000, 'copy_post' => false),
+			'note' => 						array('type' => self::TYPE_HTML, 'validate' => 'isCleanHtml', 'size' => 65000, 'copy_post' => false),
 			'is_guest' =>					array('type' => self::TYPE_BOOL, 'validate' => 'isBool', 'copy_post' => false),
 			'id_shop' => 					array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'copy_post' => false),
 			'id_shop_group' => 				array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'copy_post' => false),
@@ -198,7 +198,10 @@ class CustomerCore extends ObjectModel
 		$this->birthday = (empty($this->years) ? $this->birthday : (int)$this->years.'-'.(int)$this->months.'-'.(int)$this->days);
 		$this->secure_key = md5(uniqid(rand(), true));
 		$this->last_passwd_gen = date('Y-m-d H:i:s', strtotime('-'.Configuration::get('PS_PASSWD_TIME_FRONT').'minutes'));
-
+		
+		if ($this->newsletter && !Validate::isDate($this->newsletter_date_add))
+			$this->newsletter_date_add = date('Y-m-d H:i:s');
+			
 		if ($this->id_default_group == _PS_DEFAULT_CUSTOMER_GROUP_)
 			if ($this->is_guest)
 				$this->id_default_group = Configuration::get('PS_GUEST_GROUP');
@@ -216,9 +219,22 @@ class CustomerCore extends ObjectModel
 	public function update($nullValues = false)
 	{
 		$this->birthday = (empty($this->years) ? $this->birthday : (int)$this->years.'-'.(int)$this->months.'-'.(int)$this->days);
-		if ($this->newsletter && !$this->newsletter_date_add)
+
+		if ($this->newsletter && !Validate::isDate($this->newsletter_date_add))
 			$this->newsletter_date_add = date('Y-m-d H:i:s');
-		$this->updateGroup($this->groupBox);
+		if (Context::getContext()->controller->controller_type == 'admin')
+			$this->updateGroup($this->groupBox);
+			
+		if ($this->deleted)
+		{
+			$addresses = $this->getAddresses((int)Configuration::get('PS_LANG_DEFAULT'));
+			foreach ($addresses as $address)
+			{
+				$obj = new Address((int)$address['id_address']);
+				$obj->delete();
+			}
+		}
+
 	 	return parent::update(true);
 	}
 
@@ -279,6 +295,24 @@ class CustomerCore extends ObjectModel
 
 		return $this;
 	}
+
+	/**
+	 * Retrieve customers by email address
+	 *
+	 * @static
+	 * @param $email
+	 * @return array
+	 */
+	public static function getCustomersByEmail($email)
+	{
+		$sql = 'SELECT *
+				FROM `'._DB_PREFIX_.'customer`
+				WHERE `email` = \''.pSQL($email).'\'
+					'.Shop::addSqlRestriction(Shop::SHARE_CUSTOMER);
+
+		return Db::getInstance()->ExecuteS($sql);
+	}
+
 
 	/**
 	 * Check id the customer is active or not
@@ -531,7 +565,7 @@ class CustomerCore extends ObjectModel
 
 	public static function getGroupsStatic($id_customer)
 	{
-		if (!Group::isFeatureActive())
+		if (!Group::isFeatureActive() || $id_customer == 0)
 			return array(Configuration::get('PS_CUSTOMER_GROUP'));
 
 		if (!isset(self::$_customer_groups[$id_customer]))
@@ -645,7 +679,14 @@ class CustomerCore extends ObjectModel
 				Mail::l('Your guest account has been transformed to customer account', (int)$id_lang),
 				$vars,
 				$this->email,
-				$this->firstname.' '.$this->lastname
+				$this->firstname.' '.$this->lastname,
+				null,
+				null,
+				null,
+				null,
+				_PS_MAIL_DIR_,
+				false,
+				(int)$this->id_shop
 			);
 			return true;
 		}
@@ -707,9 +748,9 @@ class CustomerCore extends ObjectModel
 		$this->logged = 0;
 	}
 
-	public function getLastCart()
+	public function getLastCart($with_order = true)
 	{
-		$carts = Cart::getCustomerCarts((int)$this->id);
+		$carts = Cart::getCustomerCarts((int)$this->id, $with_order);
 		if (!count($carts))
 			return false;
 		$cart = array_shift($carts);
@@ -730,7 +771,8 @@ class CustomerCore extends ObjectModel
 		$query = new DbQuery();
 		$query->select('SUM(op.amount)');
 		$query->from('order_payment', 'op');
-		$query->leftJoin('orders', 'o', 'op.id_order = o.id_order');
+		$query->leftJoin('order_invoice_payment', 'oip', 'op.id_order_payment = oip.id_order_payment');
+		$query->leftJoin('orders', 'o', 'oip.id_order = o.id_order');
 		$query->groupBy('o.id_customer');
 		$query->where('o.id_customer = '.(int)$this->id);
 		$total_rest = (float)Db::getInstance()->getValue($query->build());

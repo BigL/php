@@ -66,11 +66,6 @@ if (Tools::isSubmit('installBoughtModule'))
 	die(displayJavascriptAlert('Module copied to disk'));
 }
 
-function displayJavascriptAlert($s)
-{
-	echo '<script type="text/javascript">alert(\''.addslashes($s).'\');</script>';
-}
-
 if (Tools::isSubmit('ajaxReferrers'))
 {
 	require(_PS_CONTROLLER_DIR_.'admin/AdminReferrersController.php');
@@ -84,8 +79,6 @@ if (Tools::isSubmit('getAvailableFields') AND Tools::isSubmit('entity'))
 	$jsonArray = array();
 	$import = new AdminImportController();
 
-	$languages = Language::getLanguages(false);
-	$defaultLanguage = (int)(Configuration::get('PS_LANG_DEFAULT'));
 	$fields = $import->getAvailableFields(true);
 	foreach ($fields AS $field)
 		$jsonArray[] = '{"field":"'.addslashes($field).'"}';
@@ -136,89 +129,11 @@ if (Tools::isSubmit('ajaxStates') AND Tools::isSubmit('id_country'))
 	die($list);
 }
 
-if (Tools::isSubmit('submitCustomerNote') AND $id_customer = (int)Tools::getValue('id_customer'))
-{
-	$note = html_entity_decode(Tools::getValue('note'));
-	if (!empty($note) AND !Validate::isCleanHtml($note))
-		die ('error:validation');
-	if (!Db::getInstance()->execute('UPDATE '._DB_PREFIX_.'customer SET `note` = "'.pSQL($note, true).'" WHERE id_customer = '.(int)$id_customer.' LIMIT 1'))
-		die ('error:update');
-	die('ok');
-}
-
 if (Tools::getValue('form_language_id'))
 {
 	if (!($context->cookie->employee_form_lang = (int)(Tools::getValue('form_language_id'))))
 		die ('Error while updating cookie.');
 	die ('Form language updated.');
-}
-
-if (Tools::getValue('submitPublishProduct'))
-{
-	if (Tools::getIsset('id_product'))
-	{
-		$id_product = (int)(Tools::getValue('id_product'));
-		$id_tab_catalog = (int)(Tab::getIdFromClassName('AdminProducts'));
-		$token = Tools::getAdminToken('AdminProducts'.(int)($id_tab_catalog).(int)$context->employee->id);
-		$bo_product_url = dirname($_SERVER['PHP_SELF']).'/index.php?tab=AdminProducts&id_product='.$id_product.'&updateproduct&token='.$token;
-
-		if (Tools::getValue('redirect'))
-			die($bo_product_url);
-
-		$profileAccess = Profile::getProfileAccess($context->employee->id_profile, $id_tab_catalog);
-		if($profileAccess['edit'])
-		{
-			$product = new Product((int)(Tools::getValue('id_product')));
-			if (!Validate::isLoadedObject($product))
-				die('error: invalid id');
-
-			$product->active = 1;
-
-			if ($product->save())
-				die($bo_product_url);
-			else
-				die('error: saving');
-
-		} else {
-			die('error: permissions');
-		}
-	}
-	else
-		die ('error: parameters');
-}
-
-if (Tools::getValue('submitPublishCMS'))
-{
-	if (Tools::getIsset('id_cms'))
-	{
-		$id_cms = (int)(Tools::getValue('id_cms'));
-		$id_tab_cms = (int)(Tab::getIdFromClassName('AdminCmsContent'));
-		$token = Tools::getAdminToken('AdminCmsContent'.(int)($id_tab_cms).(int)$context->employee->id);
-		$bo_cms_url = dirname($_SERVER['PHP_SELF']).'/index.php?tab=AdminCmsContent&id_cms='.(int)$id_cms.'&updatecms&token='.$token;
-
-		if (Tools::getValue('redirect'))
-			die($bo_cms_url);
-
-		$profileAccess = Profile::getProfileAccess($context->employee->id_profile, $id_tab_cms);
-		if($profileAccess['edit'])
-		{
-			$cms = new CMS((int)(Tools::getValue('id_cms')));
-			if (!Validate::isLoadedObject($cms))
-				die('error: invalid id');
-
-			$cms->active = 1;
-
-			if ($cms->save())
-				die($bo_cms_url);
-			else
-				die('error: saving');
-
-		} else {
-			die('error: permissions');
-		}
-	}
-	else
-		die ('error: parameters');
 }
 
 if (Tools::isSubmit('submitTrackClickOnHelp'))
@@ -230,36 +145,6 @@ if (Tools::isSubmit('submitTrackClickOnHelp'))
         HelpAccess::trackClick($label, $version);
 }
 
-if (Tools::isSubmit('saveImportMatchs'))
-{
-   $match = implode('|', Tools::getValue('type_value'));
-   Db::getInstance()->execute('INSERT INTO  `'._DB_PREFIX_.'import_match` (
-								`id_import_match` ,
-								`name` ,
-								`match`,
-								`skip`
-								)
-								VALUES (
-								NULL ,
-								\''.pSQL(Tools::getValue('newImportMatchs')).'\',
-								\''.pSQL($match).'\',
-								\''.pSQL(Tools::getValue('skip')).'\'
-								)');
-
-	die('{"id" : "'.Db::getInstance()->Insert_ID().'"}');
-}
-
-if (Tools::isSubmit('deleteImportMatchs'))
-{
-   Db::getInstance()->execute('DELETE FROM `'._DB_PREFIX_.'import_match` WHERE `id_import_match` = '.(int)Tools::getValue('idImportMatchs'));
-}
-
-if (Tools::isSubmit('loadImportMatchs'))
-{
-   $return = Db::getInstance()->executeS('SELECT * FROM `'._DB_PREFIX_.'import_match` WHERE `id_import_match` = '.(int)Tools::getValue('idImportMatchs'));
-   die('{"id" : "'.$return[0]['id_import_match'].'", "matchs" : "'.$return[0]['match'].'", "skip" : "'.$return[0]['skip'].'"}');
-}
-
 if (Tools::isSubmit('toggleScreencast'))
 {
 	if (Validate::isLoadedObject($context->employee))
@@ -267,190 +152,6 @@ if (Tools::isSubmit('toggleScreencast'))
 		$context->employee->bo_show_screencast = !$context->employee->bo_show_screencast;
 		$context->employee->update();
 	}
-}
-
-if (Tools::isSubmit('getHookableList'))
-{
-	/* PrestaShop demo mode */
-	if (_PS_MODE_DEMO_)
-		die('{"hasError" : true, "errors" : ["Live Edit : This functionnality has been disabled"]}');
-	/* PrestaShop demo mode*/
-
-	if (!count(Tools::getValue('hooks_list')))
-		die('{"hasError" : true, "errors" : ["Live Edit : no module on this page"]}');
-
-	$modules_list = Tools::getValue('modules_list');
-	$hooks_list = Tools::getValue('hooks_list');
-	$hookableList = array();
-
-	foreach ($modules_list as $module)
-	{
-		$module = trim($module);
-		if (!$module)
-			continue;
-
-		$moduleInstance = Module::getInstanceByName($module);
-		foreach ($hooks_list as $hook_name)
-		{
-			$hook_name = trim($hook_name);
-			if (!$hook_name)
-				continue;
-			if (!array_key_exists($hook_name, $hookableList))
-				$hookableList[$hook_name] = array();
-			if ($moduleInstance->isHookableOn($hook_name))
-				array_push($hookableList[$hook_name], str_replace('_', '-', $module));
-		}
-
-	}
-	$hookableList['hasError'] = false;
-	die(Tools::jsonEncode($hookableList));
-}
-
-if (Tools::isSubmit('getHookableModuleList'))
-{
-	/* PrestaShop demo mode */
-	if (_PS_MODE_DEMO_)
-		die('{"hasError" : true, "errors" : ["Live Edit : This functionnality has been disabled"]}');
-	/* PrestaShop demo mode*/
-
-	include('../init.php');
-	$hook_name = Tools::getValue('hook');
-	$hookableModulesList = array();
-	$modules = Db::getInstance()->executeS('SELECT id_module, name FROM `'._DB_PREFIX_.'module` ');
-	foreach ($modules as $module)
-	{
-		if (file_exists(_PS_MODULE_DIR_.$module['name'].'/'.$module['name'].'.php'))
-		{
-			include_once(_PS_MODULE_DIR_.$module['name'].'/'.$module['name'].'.php');
-			$mod = new $module['name']();
-			if ($mod->isHookableOn($hook_name))
-				$hookableModulesList[] = array('id' => (int)$mod->id, 'name' => $mod->displayName, 'display' => Hook::exec($hook_name, array(), (int)$mod->id));
-		}
-	}
-	die(Tools::jsonEncode($hookableModulesList));
-}
-
-if (Tools::isSubmit('saveHook'))
-{
-	/* PrestaShop demo mode */
-	if (_PS_MODE_DEMO_)
-		die('{"hasError" : true, "errors" : ["Live Edit : This functionnality has been disabled"]}');
-
-	$hooks_list = explode(',', Tools::getValue('hooks_list'));
-	$id_shop = (int)Tools::getValue('id_shop');
-	if (!$id_shop)
-		$id_shop = Context::getContext()->shop->id;
-
-	$res = true;
-	$hookableList = array();
-	// $_POST['hook'] is an array of id_module
-	$hooks_list = Tools::getValue('hook');
-	foreach ($hooks_list as $id_hook => $modules)
-	{
-		// 1st, drop all previous hooked modules
-		$sql = 'DELETE FROM `'._DB_PREFIX_.'hook_module`
-			WHERE `id_hook` =  '.(int)$id_hook.'
-			AND id_shop = '.$id_shop;
-		$res &= Db::getInstance()->execute($sql);
-
-		$i = 1;
-		$value = '';
-		$ids = array();
-		// then prepare sql query to rehook all chosen modules(id_module, id_shop, id_hook, position)
-		// position is i (autoincremented)
-		foreach ($modules as $id_module)
-		{
-			if (!in_array($id_module, $ids))
-			{
-				$ids[] = $id_module;
-				$value .= '('.(int)$id_module.', '.$id_shop.', '.(int)$id_hook.', '.$i.'),';
-			}
-			$i++;
-		}
-		$value = rtrim($value, ',');
-		$res &= Db::getInstance()->execute('INSERT INTO  `'._DB_PREFIX_.'hook_module`
-			(id_module, id_shop, id_hook, position)
-			VALUES '.$value);
-
-	}
-	if ($res)
-		$hasError = true;
-	else
-		$hasError = false;
-	die('{"hasError" : false, "errors" : ""}');
-}
-
-if (Tools::isSubmit('getAdminHomeElement'))
-{
-	$result = array();
-
-	$protocol = Tools::usingSecureMode() ? 'https' : 'http';
-	$isoUser = Context::getContext()->language->iso_code;
-	$isoCountry = Context::getContext()->country->iso_code;
-	$stream_context = @stream_context_create(array('http' => array('method'=> 'GET', 'timeout' => 5)));
-
-	// SCREENCAST
-	if (@fsockopen('api.prestashop.com', 80, $errno, $errst, 3))
-		$result['screencast'] = 'OK';
-	else
-		$result['screencast'] = 'NOK';
-
-	// PREACTIVATION
-	$content = @file_get_contents($protocol.'://api.prestashop.com/partner/preactivation/preactivation-block.php?version=1.0&shop='.urlencode(Configuration::get('PS_SHOP_NAME')).'&protocol='.$protocol.'&url='.urlencode($_SERVER['HTTP_HOST']).'&iso_country='.$isoCountry.'&iso_lang='.Tools::strtolower($isoUser).'&id_lang='.(int)Context::getContext()->language->id.'&email='.urlencode(Configuration::get('PS_SHOP_EMAIL')).'&date_creation='._PS_CREATION_DATE_.'&v='._PS_VERSION_.'&security='.md5(Configuration::get('PS_SHOP_EMAIL')._COOKIE_IV_), false, $stream_context);
-	if (!$content)
-		$result['partner_preactivation'] = 'NOK';
-	else
-	{
-		$content = explode('|', $content);
-		if ($content[0] == 'OK' && Validate::isCleanHtml($content[2]) && Validate::isCleanHtml($content[1]))
-		{
-			$result['partner_preactivation'] = $content[2];
-			$content[1] = explode('#%#', $content[1]);
-			foreach ($content[1] as $partnerPopUp)
-				if ($partnerPopUp)
-				{
-					$partnerPopUp = explode('%%', $partnerPopUp);
-					if (!Configuration::get('PS_PREACTIVATION_'.strtoupper($partnerPopUp[0])))
-					{
-						$result['partner_preactivation'] .= $partnerPopUp[1];
-						Configuration::updateValue('PS_PREACTIVATION_'.strtoupper($partnerPopUp[0]), 'TRUE');
-					}
-				}
-		}
-		else
-			$result['partner_preactivation'] = 'NOK';
-	}
-
-	// PREACTIVATION PAYPAL WARNING
-	$content = @file_get_contents('https://api.prestashop.com/partner/preactivation/preactivation-warnings.php?version=1.0&partner=paypal&iso_country='.Tools::strtolower(Context::getContext()->country->iso_code).'&iso_lang='.Tools::strtolower(Context::getContext()->language->iso_code).'&id_lang='.(int)Context::getContext()->language->id.'&email='.urlencode(Configuration::get('PS_SHOP_EMAIL')).'&security='.md5(Configuration::get('PS_SHOP_EMAIL')._COOKIE_IV_), false, $stream_context);
-	$content = explode('|', $content);
-	if ($content[0] == 'OK' && Validate::isCleanHtml($content[1]))
-		Configuration::updateValue('PS_PREACTIVATION_PAYPAL_WARNING', $content[1]);
-	else
-		Configuration::updateValue('PS_PREACTIVATION_PAYPAL_WARNING', '');
-
-	// DISCOVER PRESTASHOP
-	$content = @file_get_contents($protocol.'://api.prestashop.com/partner/prestashop/prestashop-link.php?iso_country='.$isoCountry.'&iso_lang='.Tools::strtolower($isoUser).'&id_lang='.(int)Context::getContext()->language->id, false, $stream_context);
-	if (!$content)
-		$result['discover_prestashop'] = 'NOK';
-	else
-	{
-		$content = explode('|', $content);
-		if ($content[0] == 'OK' && Validate::isCleanHtml($content[1]))
-			$result['discover_prestashop'] = $content[1];
-		else
-			$result['discover_prestashop'] = 'NOK';
-
-		if (@fsockopen('api.prestashop.com', 80, $errno, $errst, 3))
-			$result['discover_prestashop'] .= '<iframe frameborder="no" style="margin: 0px; padding: 0px; width: 315px; height: 290px;" src="'.$protocol.'://api.prestashop.com/rss/news2.php?v='._PS_VERSION_.'&lang='.$isoUser.'"></iframe>';
-
-		$content = @file_get_contents($protocol.'://api.prestashop.com/partner/paypal/paypal-tips.php?protocol='.$protocol.'&iso_country='.$isoCountry.'&iso_lang='.Tools::strtolower($isoUser).'&id_lang='.(int)Context::getContext()->language->id, false, $stream_context);
-		$content = explode('|', $content);
-		if ($content[0] == 'OK' && Validate::isCleanHtml($content[1]))
-			$result['discover_prestashop'] .= $content[1];
-	}
-
-	die(Tools::jsonEncode($result));
 }
 
 if (Tools::isSubmit('getChildrenCategories') && Tools::isSubmit('id_category_parent'))
@@ -626,4 +327,9 @@ if (Tools::isSubmit('getZones'))
 	$html .= '</select>';
 	$array = array('hasError' => false, 'errors' => '', 'data' => $html);
 	die(Tools::jsonEncode($html));
+}
+
+function displayJavascriptAlert($s)
+{
+	echo '<script type="text/javascript">alert(\''.addslashes($s).'\');</script>';
 }

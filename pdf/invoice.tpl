@@ -74,7 +74,7 @@
 		<td style="width: 15%; padding-right: 7px; text-align: right; vertical-align: top; font-size: 7pt;">
 			<!-- CUSTOMER INFORMATION -->
 			<b>{l s='Order Number:' pdf='true'}</b><br />
-			{'%06d'|sprintf:$order->id}<br />
+			{$order->getUniqReference()}<br />
 			<br />
 			<b>{l s='Order Date:' pdf='true'}</b><br />
 			{$order->date_add|date_format:"%d-%m-%Y %H:%M"}<br />
@@ -101,9 +101,9 @@
 					<td style="text-align: left; background-color: #4D4D4D; color: #FFF; padding-left: 10px; font-weight: bold; width: 45%">{l s='Product / Reference' pdf='true'}</td>
 					<!-- unit price tax excluded is mandatory -->
 					{if !$tax_excluded_display}
-						<td style="background-color: #4D4D4D; color: #FFF; text-align: right; font-weight: bold;; width: 10%">{l s='Unit Price' pdf='true'} <br />{l s='(Tax Excl.)' pdf='true'}</td>
+						<td style="background-color: #4D4D4D; color: #FFF; text-align: right; font-weight: bold; width: 10%">{l s='Unit Price' pdf='true'} <br />{l s='(Tax Excl.)' pdf='true'}</td>
 					{/if}
-					<td style="background-color: #4D4D4D; color: #FFF; text-align: right; font-weight: bold;; width: 10%">
+					<td style="background-color: #4D4D4D; color: #FFF; text-align: right; font-weight: bold; width: 10%">
 						{l s='Unit Price' pdf='true'}
 						{if $tax_excluded_display}
 							 {l s='(Tax Excl.)' pdf='true'}
@@ -111,9 +111,9 @@
 							 {l s='(Tax Incl.)' pdf='true'}
 						{/if}
 					</td>
-					<td style="background-color: #4D4D4D; color: #FFF; text-align: right; font-weight: bold;; width: 10%">{l s='Discount' pdf='true'}</td>
+					<td style="background-color: #4D4D4D; color: #FFF; text-align: right; font-weight: bold; width: 10%">{l s='Discount' pdf='true'}</td>
 					<td style="background-color: #4D4D4D; color: #FFF; text-align: center; font-weight: bold; width: 10%">{l s='Qty' pdf='true'}</td>
-					<td style="background-color: #4D4D4D; color: #FFF; text-align: right; font-weight: bold;; width: 15%">
+					<td style="background-color: #4D4D4D; color: #FFF; text-align: right; font-weight: bold; width: {if !$tax_excluded_display}15%{else}25%{/if}">
 						{l s='Total' pdf='true'}
 						{if $tax_excluded_display}
 							{l s='(Tax Excl.)' pdf='true'}
@@ -150,7 +150,7 @@
 					{/if}
 					</td>
 					<td style="text-align: center; width: 10%">{$order_detail.product_quantity}</td>
-					<td style="width: 15%; text-align: right;  width: 15%">
+					<td style="width: 15%; text-align: right;  width: {if !$tax_excluded_display}15%{else}25%{/if}">
 					{if $tax_excluded_display}
 						{displayPrice currency=$order->id_currency price=$order_detail.total_price_tax_excl}
 					{else}
@@ -162,17 +162,22 @@
 						{foreach $customizationPerAddress as $customizationId => $customization}
 							<tr style="line-height:6px;background-color:{$bgcolor}; ">
 								<td style="line-height:3px; text-align: left; width: 60%; vertical-align: top">
-									{foreach $customization.datas as $customization_types}
+
 										<blockquote>
-										{foreach $customization_types as $customization_infos name=custo_foreach}
-											{$customization_infos.name}: {$customization_infos.value}
-											{if !$smarty.foreach.custo_foreach.last}<br />
-											{else}
-											<div style="line-height:0.4pt">&nbsp;</div>
+											{if isset($customization.datas[$smarty.const._CUSTOMIZE_TEXTFIELD_]) && count($customization.datas[$smarty.const._CUSTOMIZE_TEXTFIELD_]) > 0}
+												{foreach $customization.datas[$smarty.const._CUSTOMIZE_TEXTFIELD_] as $customization_infos}
+													{$customization_infos.name}: {$customization_infos.value}
+													{if !$smarty.foreach.custo_foreach.last}<br />
+													{else}
+													<div style="line-height:0.4pt">&nbsp;</div>
+													{/if}
+												{/foreach}
 											{/if}
-										{/foreach}
+
+											{if isset($customization.datas[$smarty.const._CUSTOMIZE_FILE_]) && count($customization.datas[$smarty.const._CUSTOMIZE_FILE_]) > 0}
+												{count($customization.datas[$smarty.const._CUSTOMIZE_FILE_])} {l s='image(s)' pdf='true'}
+											{/if}
 										</blockquote>
-									{/foreach}
 								</td>
 								<td style="text-align: right; width: 15%"></td>
 								<td style="text-align: center; width: 10%; vertical-align: top">({$customization.quantity})</td>
@@ -184,11 +189,15 @@
 				<!-- END PRODUCTS -->
 
 				<!-- CART RULES -->
+				{assign var="shipping_discount_tax_incl" value="0"}
 				{foreach $cart_rules as $cart_rule}
 				{cycle values='#FFF,#DDD' assign=bgcolor}
 					<tr style="line-height:6px;background-color:{$bgcolor};" text-align="left">
 						<td colspan="{if !$tax_excluded_display}5{else}4{/if}">{$cart_rule.name}</td>
 						<td>
+							{if $cart_rule.free_shipping}
+								{assign var="shipping_discount_tax_incl" value=$order_invoice->total_shipping_tax_incl}
+							{/if}
 							{if $tax_excluded_display}
 								- {$cart_rule.value_tax_excl}
 							{else}
@@ -221,7 +230,7 @@
 				{if $order_invoice->total_discount_tax_incl > 0}
 				<tr style="line-height:5px;">
 					<td style="text-align: right; font-weight: bold">{l s='Total Vouchers' pdf='true'}</td>
-					<td style="width: 15%; text-align: right;">-{displayPrice currency=$order->id_currency price=$order_invoice->total_discount_tax_incl}</td>
+					<td style="width: 15%; text-align: right;">-{displayPrice currency=$order->id_currency price=($order_invoice->total_discount_tax_incl + $shipping_discount_tax_incl)}</td>
 				</tr>
 				{/if}
 
@@ -263,12 +272,6 @@
 					<td style="width: 15%; text-align: right;">{displayPrice currency=$order->id_currency price=$order_invoice->total_paid_tax_incl}</td>
 				</tr>
 
-				{if $order_invoice->getRestPaid() > 0}
-				<tr style="line-height:5px;color:red;">
-					<td style="text-align: right; font-weight: bold">{l s='Remaining Amount Due' pdf='true'}</td>
-					<td style="width: 15%; text-align: right;">{displayPrice currency=$order->id_currency price=$order_invoice->getRestPaid()}</td>
-				</tr>
-				{/if}
 			</table>
 
 		</td>

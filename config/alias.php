@@ -20,7 +20,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 13573 $
+*  @version  Release: $Revision: 16629 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -59,7 +59,12 @@ function ddd($var)
  */
 function pSQL($string, $htmlOK = false)
 {
-	return Db::getInstance()->escape($string, $htmlOK);
+	// Avoid thousands of "Db::getInstance()"...
+	static $db = false;
+	if (!$db)
+		$db = Db::getInstance();
+
+	return $db->escape($string, $htmlOK);
 }
 
 function bqSQL($string)

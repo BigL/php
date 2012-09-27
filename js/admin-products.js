@@ -18,7 +18,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 15809 $
+*  @version  Release: $Revision: 17065 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -27,6 +27,12 @@
 // The ProductTabsManager instance will make sure the onReady() methods of each tabs are executed once the tab has loaded
 var product_tabs = [];
 
+product_tabs['Customization'] = new function(){
+	this.onReady = function(){
+		if (display_multishop_checkboxes)
+		ProductMultishop.checkAllCustomization();
+	}
+}
 product_tabs['Combinations'] = new function(){
 	var self = this;
 	this.bindEdit = function(){
@@ -413,12 +419,12 @@ function handleSaveButtons(e)
 
 	// common for all products
 	$("#disableSaveMessage").remove();
-	if ($("#name_"+defaultLanguage).val() == "" && (!display_multishop_checkboxes || $('input[name=\'multishop_check[name]['+defaultLanguage+']\']').prop('checked')))
+	if ($("#name_" + id_lang_default).val() == "" && (!display_multishop_checkboxes || $('input[name=\'multishop_check[name][' + id_lang_default + ']\']').prop('checked')))
 	{
 		msg[i++] = empty_name_msg;
 	}
 	// check friendly_url_[defaultlangid] only if name is ok
-	else if ($("#link_rewrite_"+defaultLanguage).val() == "" && (!display_multishop_checkboxes || $('input[name=\'link_rewrite[name]['+defaultLanguage+']\']').prop('checked')))
+	else if ($("#link_rewrite_" + id_lang_default).val() == "" && (!display_multishop_checkboxes || $('input[name=\'link_rewrite[name][' + id_lang_default + ']\']').prop('checked')))
 		msg[i++] = empty_link_rewrite_msg;
 
 	if (msg.length == 0)
@@ -527,13 +533,16 @@ product_tabs['Prices'] = new function(){
 			context: this,
 			async: false,
 			success: function(data) {
-				if (data.status == 'ok')
+				if (data !== null)
 				{
-					showSuccessMessage(data.message);
-					parent.remove();
+					if (data.status == 'ok')
+					{
+						showSuccessMessage(data.message);
+						parent.remove();
+					}
+					else
+						showErrorMessage(data.message);
 				}
-				else
-					showErrorMessage(data.message);
 			}
 		});
 	};
@@ -1540,6 +1549,12 @@ var ProductMultishop = new function()
 		ProductMultishop.checkField($('input[name=\'multishop_check[id_category_default]\']').prop('checked'), 'categories-treeview', 'category_box');
 	};
 
+	this.checkAllCustomization = function()
+	{
+		ProductMultishop.checkField($('input[name=\'multishop_check[uploadable_files]\']').prop('checked'), 'uploadable_files');
+		ProductMultishop.checkField($('input[name=\'multishop_check[text_fields]\']').prop('checked'), 'text_fields');
+	};
+
 	this.checkAllCombinations = function()
 	{
 		ProductMultishop.checkField($('input[name=\'multishop_check[attribute_wholesale_price]\']').prop('checked'), 'attribute_wholesale_price');
@@ -1562,7 +1577,7 @@ $(document).ready(function() {
 
 	updateCurrentText();
 
-	$("#name_"+defaultLanguage+",#link_rewrite_"+defaultLanguage)
+	$("#name_" + id_lang_default + ",#link_rewrite_" + id_lang_default)
 		.live("change", function(e)
 		{
 			if(typeof e == KeyboardEvent)
@@ -1571,7 +1586,7 @@ $(document).ready(function() {
 			$(this).trigger("handleSaveButtons");
 		});
 	// bind that custom event
-	$("#name_"+defaultLanguage+",#link_rewrite_"+defaultLanguage)
+	$("#name_" + id_lang_default + ",#link_rewrite_" + id_lang_default)
 		.live("handleSaveButtons", function(e)
 		{
 			handleSaveButtons()

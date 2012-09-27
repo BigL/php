@@ -54,7 +54,15 @@ var img_dir = '{$img_dir}';
 		<span class="ajax_cart_quantity" {if $cart_qties <= 0}style="display:none;"{/if}>{$cart_qties}</span>
 		<span class="ajax_cart_product_txt_s" {if $cart_qties <= 1}style="display:none"{/if}>{l s='products' mod='blockcart'}</span>
 		<span class="ajax_cart_product_txt" {if $cart_qties > 1}style="display:none"{/if}>{l s='product' mod='blockcart'}</span>
-		<span class="ajax_cart_total" {if $cart_qties <= 0}style="display:none"{/if}>{if $priceDisplay == 1}{convertPrice price=$cart->getOrderTotal(false)}{else}{convertPrice price=$cart->getOrderTotal(true)}{/if}</span>
+		<span class="ajax_cart_total" {if $cart_qties == 0}style="display:none"{/if}>
+			{if $cart_qties > 0}
+				{if $priceDisplay == 1}
+					{convertPrice price=$cart->getOrderTotal(false)}
+				{else}
+					{convertPrice price=$cart->getOrderTotal(true)}
+				{/if}
+			{/if}
+		</span>
 		<span class="ajax_cart_no_product" {if $cart_qties != 0}style="display:none"{/if}>{l s='(empty)' mod='blockcart'}</span>
 	</div>
 	<!-- block list of products -->
@@ -115,7 +123,11 @@ var img_dir = '{$img_dir}';
 							<td class="quantity">1x</td>
 							<td class="name" title="{$discount.description}">{$discount.name|cat:' : '|cat:$discount.description|truncate:18:'...'|escape:'htmlall':'UTF-8'}</td>
 							<td class="price">-{if $priceDisplay == 1}{convertPrice price=$discount.value_tax_exc}{else}{convertPrice price=$discount.value_real}{/if}</td>
-							<td class="delete"><a class="delete_voucher" href="{$link->getPageLink('$order_process.php', true)}?deleteDiscount={$discount.id_discount}" title="{l s='Delete' mod='blockcart'}"><img src="{$img_dir}icon/delete.gif" alt="{l s='Delete' mod='blockcart'}" class="icon" /></a></td>
+							<td class="delete">
+								{if strlen($discount.code)}
+									<a class="delete_voucher" href="{$link->getPageLink('$order_process.php', true)}?deleteDiscount={$discount.id_discount}" title="{l s='Delete' mod='blockcart'}"><img src="{$img_dir}icon/delete.gif" alt="{l s='Delete' mod='blockcart'}" class="icon" /></a>
+								{/if}
+							</td>
 						</tr>
 						{/if}
 					{/foreach}

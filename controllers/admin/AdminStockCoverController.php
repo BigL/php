@@ -20,7 +20,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 14813 $
+*  @version  Release: $Revision: 17045 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -191,6 +191,7 @@ class AdminStockCoverControllerCore extends AdminController
 		$this->_join = 'LEFT JOIN `'._DB_PREFIX_.'product_attribute` pa ON (pa.id_product = a.id_product)
 						'.Shop::addSqlAssociation('product_attribute', 'pa', false).'
 						INNER JOIN `'._DB_PREFIX_.'stock` s ON (s.id_product = a.id_product)';
+		$this->_group = 'GROUP BY a.id_product';
 
 		self::$currentIndex .= '&coverage_period='.(int)$this->getCurrentCoveragePeriod().'&warn_days='.(int)$this->getCurrentWarning();
 		if ($this->getCurrentCoverageWarehouse() != -1)
@@ -350,5 +351,25 @@ class AdminStockCoverControllerCore extends AdminController
 
 		$quantity = Db::getInstance(_PS_USE_SQL_SLAVE_)->getValue($query);
 		return $quantity;
+	}
+	
+	public function initContent()
+	{
+		if (!Configuration::get('PS_ADVANCED_STOCK_MANAGEMENT'))
+		{
+			$this->warnings[md5('PS_ADVANCED_STOCK_MANAGEMENT')] = $this->l('You need to activate advanced stock management prior to use this feature.');
+			return false;
+		}
+		parent::initContent();
+	}
+	
+	public function initProcess()
+	{
+		if (!Configuration::get('PS_ADVANCED_STOCK_MANAGEMENT'))
+		{
+			$this->warnings[md5('PS_ADVANCED_STOCK_MANAGEMENT')] = $this->l('You need to activate advanced stock management prior to use this feature.');
+			return false;
+		}
+		parent::initProcess();	
 	}
 }

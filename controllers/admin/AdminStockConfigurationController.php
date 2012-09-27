@@ -20,7 +20,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 14378 $
+*  @version  Release: $Revision: 16746 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -551,5 +551,25 @@ class AdminStockConfigurationControllerCore extends AdminController
 						$item['product_name'] = $this->l('The name of this product is not available. It may been deleted from the system.');
 				}
 			}
+	}
+	
+	public function initContent()
+	{
+		if (!Configuration::get('PS_ADVANCED_STOCK_MANAGEMENT'))
+		{
+			$this->warnings[md5('PS_ADVANCED_STOCK_MANAGEMENT')] = $this->l('You need to activate advanced stock management prior to use this feature.');
+			return false;
+		}
+		parent::initContent();
+	}
+	
+	public function initProcess()
+	{
+		if (!Configuration::get('PS_ADVANCED_STOCK_MANAGEMENT'))
+		{
+			$this->warnings[md5('PS_ADVANCED_STOCK_MANAGEMENT')] = $this->l('You need to activate advanced stock management prior to use this feature.');
+			return false;
+		}
+		parent::initProcess();	
 	}
 }

@@ -19,88 +19,89 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 15900 $
+*  @version  Release: $Revision: 17161 $
 *  @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 *}
 
 <script type="text/javascript">
-
+var Customer = new Object();
 var product_url = '{$link->getAdminLink('AdminProducts', true)}';
-
-var Customer = {
-	"hiddenField": jQuery('#id_customer'),
-	"field": jQuery('#customer'),
-	"container": jQuery('#customers'),
-	"loader": jQuery('#customerLoader'),
-	"init": function() {
-		jQuery(Customer.field).typeWatch({
-			"captureLength": 1,
-			"highlight": true,
-			"wait": 50,
-			"callback": Customer.search
-		}).focus(Customer.placeholderIn).blur(Customer.placeholderOut);
-	},
-	"placeholderIn": function() {
-		if (this.value == '{l s='All customers'}') {
-			this.value = '';
-		}
-	},
-	"placeholderOut": function() {
-		if (this.value == '') {
-			this.value = '{l s='All customers'}';
-		}
-	},
-	"search": function()
-	{
-		Customer.showLoader();
-		jQuery.ajax({
-			"type": "POST",
-			"url": "{$link->getAdminLink('AdminCustomers')}",
-			"async": true,
-			"dataType": "json",
-			"data": {
-				"ajax": "1",
-				"token": "{getAdminToken tab='AdminCustomers'}",
-				"tab": "AdminCustomers",
-				"action": "searchCustomers",
-				"customer_search": Customer.field.val()
-			},
-			"success": Customer.success
-		});
-	},
-	"success": function(result)
-	{
-		if(result.found) {
-			var html = '<ul class="clearfix">';
-			jQuery.each(result.customers, function() {
-				html += '<li><a class="fancybox" href="{$link->getAdminLink('AdminCustomers')}&id_customer='+this.id_customer+'&viewcustomer&liteDisplaying=1">'+this.firstname+' '+this.lastname+'</a>'+(this.birthday ? ' - '+this.birthday:'')+'<br/>';
-				html += '<a href="mailto:'+this.email+'">'+this.email+'</a><br />';
-				html += '<a onclick="Customer.select('+this.id_customer+', \''+this.firstname+' '+this.lastname+'\'); return false;" href="#" class="button">{l s='Choose'}</a></li>';
+$(document).ready(function () {
+	Customer = {
+		"hiddenField": jQuery('#id_customer'),
+		"field": jQuery('#customer'),
+		"container": jQuery('#customers'),
+		"loader": jQuery('#customerLoader'),
+		"init": function() {
+			jQuery(Customer.field).typeWatch({
+				"captureLength": 1,
+				"highlight": true,
+				"wait": 50,
+				"callback": Customer.search
+			}).focus(Customer.placeholderIn).blur(Customer.placeholderOut);
+		},
+		"placeholderIn": function() {
+			if (this.value == '{l s='All customers'}') {
+				this.value = '';
+			}
+		},
+		"placeholderOut": function() {
+			if (this.value == '') {
+				this.value = '{l s='All customers'}';
+			}
+		},
+		"search": function()
+		{
+			Customer.showLoader();
+			jQuery.ajax({
+				"type": "POST",
+				"url": "{$link->getAdminLink('AdminCustomers')}",
+				"async": true,
+				"dataType": "json",
+				"data": {
+					"ajax": "1",
+					"token": "{getAdminToken tab='AdminCustomers'}",
+					"tab": "AdminCustomers",
+					"action": "searchCustomers",
+					"customer_search": Customer.field.val()
+				},
+				"success": Customer.success
 			});
-			html += '</ul>';
+		},
+		"success": function(result)
+		{
+			if(result.found) {
+				var html = '<ul class="clearfix">';
+				jQuery.each(result.customers, function() {
+					html += '<li><a class="fancybox" href="{$link->getAdminLink('AdminCustomers')}&id_customer='+this.id_customer+'&viewcustomer&liteDisplaying=1">'+this.firstname+' '+this.lastname+'</a>'+(this.birthday ? ' - '+this.birthday:'')+'<br/>';
+					html += '<a href="mailto:'+this.email+'">'+this.email+'</a><br />';
+					html += '<a onclick="Customer.select('+this.id_customer+', \''+this.firstname+' '+this.lastname+'\'); return false;" href="#" class="button">{l s='Choose'}</a></li>';
+				});
+				html += '</ul>';
+			}
+			else
+				html = '<div class="warn">{l s='No customers found'}</div>';
+			Customer.hideLoader();
+			Customer.container.html(html);
+			jQuery('.fancybox', Customer.container).fancybox();
+		},
+		"select": function(id_customer, fullname)
+		{
+			Customer.hiddenField.val(id_customer);
+			Customer.field.val(fullname);
+			Customer.container.empty();
+			return false;
+		},
+		"showLoader": function() {
+			Customer.loader.fadeIn();
+		},
+		"hideLoader": function() {
+			Customer.loader.fadeOut();
 		}
-		else
-			html = '<div class="warn">{l s='No customers found'}</div>';
-		Customer.hideLoader();
-		Customer.container.html(html);
-		jQuery('.fancybox', Customer.container).fancybox();
-	},
-	"select": function(id_customer, fullname)
-	{
-		Customer.hiddenField.val(id_customer);
-		Customer.field.val(fullname);
-		Customer.container.empty();
-		return false;
-	},
-	"showLoader": function() {
-		Customer.loader.fadeIn();
-	},
-	"hideLoader": function() {
-		Customer.loader.fadeOut();
-	}
-};
-jQuery(document).ready(Customer.init);
+	};
+	Customer.init();
+});
 </script>
 
 {* END CUSTOMER AUTO-COMPLETE / TO REFACTO *}
@@ -120,7 +121,7 @@ jQuery(document).ready(Customer.init);
 			<label>{l s='Pre-tax wholesale price:'}</label>
 		</td>
 		<td style="padding-bottom:5px;">
-			{$currency->prefix}<input size="11" maxlength="14" name="wholesale_price" id="wholesale_price" type="text" value="{$product->wholesale_price|string_format:'%.2f'}" onchange="this.value = this.value.replace(/,/g, '.');" />{$currency->suffix}
+			{$currency->prefix}<input size="11" maxlength="14" name="wholesale_price" id="wholesale_price" type="text" value="{{toolsConvertPrice price=$product->wholesale_price}|string_format:'%.2f'}" onchange="this.value = this.value.replace(/,/g, '.');" />{$currency->suffix}
 			<p class="preference_description">{l s='The wholesale price at which you bought this product'}</p>
 		</td>
 	</tr>
@@ -131,8 +132,8 @@ jQuery(document).ready(Customer.init);
 			<label>{l s='Pre-tax retail price:'}</label>
 		</td>
 		<td style="padding-bottom:5px;">
-			<input type="hidden"  id="priceTEReal" name="price" value="{$product->price}" />
-			{$currency->prefix}<input size="11" maxlength="14" id="priceTE" name="price_displayed" type="text" value="{$product->price|string_format:'%.2f'}" onchange="noComma('priceTE'); $('#priceTEReal').val(this.value);" onkeyup="$('#priceType').val('TE'); $('#priceTEReal').val(this.value.replace(/,/g, '.')); if (isArrowKey(event)) return; calcPriceTI();" />{$currency->suffix}
+			<input type="hidden"  id="priceTEReal" name="price" value="{toolsConvertPrice price=$product->price}" />
+			{$currency->prefix}<input size="11" maxlength="14" id="priceTE" name="price_displayed" type="text" value="{{toolsConvertPrice price=$product->price}|string_format:'%.2f'}" onchange="noComma('priceTE'); $('#priceTEReal').val(this.value);" onkeyup="$('#priceType').val('TE'); $('#priceTEReal').val(this.value.replace(/,/g, '.')); if (isArrowKey(event)) return; calcPriceTI();" />{$currency->suffix}
 			<p class="preference_description">{l s='The pre-tax retail price to sell this product'}</p>
 		</td>
 	</tr>
@@ -165,12 +166,12 @@ jQuery(document).ready(Customer.init);
 						</option>
 					{/foreach}
 				</select>
-				<a class="button" href="{$link->getAdminLink('AdminTaxRulesGroup')}&addtax_rules_group&id_product={$product->id}" class="confirm_leave">
+				<a class="button" href="{$link->getAdminLink('AdminTaxRulesGroup')|escape:'htmlall':'UTF-8'}&addtax_rules_group&id_product={$product->id}" class="confirm_leave">
 				<img src="../img/admin/add.gif" alt="{l s='Create'}" title="{l s='Create'}" /> {l s='Create'}
 				</a>
 			</span>
 			{if $tax_exclude_taxe_option}
-				<span style="margin-left:10px; color:red;">{l s='Taxes are currently disabled'}</span> (<b><a href="{$link->getAdminLink('AdminTaxes')}">{l s='Tax options'}</a></b>)
+				<span style="margin-left:10px; color:red;">{l s='Taxes are currently disabled'}</span> (<b><a href="{$link->getAdminLink('AdminTaxes')|escape:'htmlall':'UTF-8'}">{l s='Tax options'}</a></b>)
 				<input type="hidden" value="{$product->getIdTaxRulesGroup()}" name="id_tax_rules_group" />
 			{/if}
 		</td>
@@ -209,7 +210,7 @@ jQuery(document).ready(Customer.init);
 					{l s='per'} <span id="unity_second">{$product->unity}</span> {l s='with tax'}
 				</span>
 			{/if}
-			<p>{l s='e.g.  per lb'}</p>
+			<p>{l s='e.g. per lb'}</p>
 		</td>
 	</tr>
 	<tr>
@@ -384,7 +385,7 @@ jQuery(document).ready(Customer.init);
 		</div>
 	</div>
 
-	<table style="text-align: center;width:100%" class="table" cellpadding="0" cellspacing="0" id="specific_prices_list">
+	<table style="text-align: left;width:100%" class="table" cellpadding="0" cellspacing="0" id="specific_prices_list">
 		<thead>
 			<tr>
 				<th class="cell border" style="width: 12%;">{l s='Rule'}</th>
@@ -394,11 +395,10 @@ jQuery(document).ready(Customer.init);
 				<th class="cell border" style="width: 11%;">{l s='Country'}</th>
 				<th class="cell border" style="width: 13%;">{l s='Group'}</th>
 				<th class="cell border" style="width: 13%;">{l s='Customer'}</th>
-				<th class="cell border" style="width: 12%;">{l s='Price'} {if $country_display_tax_label}{l s='(tax excl.)'}{/if}</th>
-				<th class="cell border" style="width: 10%;">{l s='Reduction'}</th>
+				<th class="cell border" style="width: 13%;">{l s='Fixed price'}</th>
+				<th class="cell border" style="width: 13%;">{l s='Impact'}</th>
 				<th class="cell border" style="width: 15%;">{l s='Period'}</th>
-				<th class="cell border" style="width: 10%;">{l s='From (quantity)'}</th>
-				<th class="cell border" style="width: 15%;">{l s='Final price'} {if $country_display_tax_label}{l s='(tax excl.)'}{/if}</th>
+				<th class="cell border" style="width: 13%;">{l s='From (quantity)'}</th>
 				<th class="cell border" style="width: 2%;">{l s='Action'}</th>
 			</tr>
 		</thead>

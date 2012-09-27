@@ -19,7 +19,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 14595 $
+*  @version  Release: $Revision: 17094 $
 *  @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 *}
@@ -52,7 +52,7 @@ $('document').ready(function(){
 			});
 		}
 		else
-			$('#send_friend_form_error').text('{/literal}{l s="You did not fill required fields" mod='sendtoafriend'}{literal}');
+			$('#send_friend_form_error').text('{/literal}{l s='You did not fill required fields' mod='sendtoafriend'}{literal}');
 	});
 });
 {/literal}

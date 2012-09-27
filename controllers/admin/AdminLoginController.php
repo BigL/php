@@ -65,7 +65,7 @@ class AdminLoginControllerCore extends AdminController
 			else
 			{
 				$warningSslMessage = Tools::displayError('SSL is activated. Please connect using the following url to log in in secure mode (https).');
-				$warningSslMessage .= '<a href="https://'.Tools::getServerName().Tools::safeOutput($_SERVER['REQUEST_URI']).'">https://'.Tools::getServerName().Tools::safeOutput($_SERVER['REQUEST_URI']).'</a>';
+				$warningSslMessage .= '<a href="https://'.Tools::safeOutput(Tools::getServerName()).Tools::safeOutput($_SERVER['REQUEST_URI']).'">https://'.Tools::safeOutput(Tools::getServerName()).Tools::safeOutput($_SERVER['REQUEST_URI']).'</a>';
 				$this->context->smarty->assign(array('warningSslMessage' => $warningSslMessage));
 			}
 		}
@@ -139,17 +139,24 @@ class AdminLoginControllerCore extends AdminController
 			
 		if (!count($this->errors))
 		{
-		 	// Find employee
+			// Find employee
 			$this->context->employee = new Employee();
-			if (!$this->context->employee->getByemail($email, $passwd))
+			$is_employee_loaded = $this->context->employee->getByemail($email, $passwd);
+			$employee_associated_shop = $this->context->employee->getAssociatedShops();
+			if (!$is_employee_loaded)
 			{
 				$this->errors[] = Tools::displayError('Employee does not exist or password is incorrect.');
+				$this->context->employee->logout();
+			}
+			elseif (empty($employee_associated_shop) && !$this->context->employee->isSuperAdmin())
+			{
+				$this->errors[] = Tools::displayError('Employee does not manage any shop anymore (shop has been deleted or permissions have been removed).');
 				$this->context->employee->logout();
 			}
 			else
 			{
 				$this->context->employee->remote_addr = ip2long(Tools::getRemoteAddr());
-			 	// Update cookie
+				// Update cookie
 				$cookie = Context::getContext()->cookie;
 				$cookie->id_employee = $this->context->employee->id;
 				$cookie->email = $this->context->employee->email;
@@ -196,14 +203,14 @@ class AdminLoginControllerCore extends AdminController
 				);
 		}
 		if (_PS_MODE_DEMO_)
-			$errors[] = Tools::displayError('This functionality has been disabled.');
+			$this->errors[] = Tools::displayError('This functionality has been disabled.');
 
 		if (!count($this->errors))
 		{	
 			$pwd = Tools::passwdGen();
 			$employee->passwd = md5(pSQL(_COOKIE_KEY_.$pwd));
 			$employee->last_passwd_gen = date('Y-m-d H:i:s', time());
-			
+
 			$params = array(
 				'{email}' => $employee->email,
 				'{lastname}' => $employee->lastname,
@@ -211,7 +218,7 @@ class AdminLoginControllerCore extends AdminController
 				'{passwd}' => $pwd
 			);
 						
-			if (Mail::Send((int)Configuration::get('PS_LANG_DEFAULT'), 'password', Mail::l('Your new admin password', (int)Configuration::get('PS_LANG_DEFAULT')), $params, $employee->email, $employee->firstname.' '.$employee->lastname))
+			if (Mail::Send((int)Configuration::get('PS_LANG_DEFAULT'), 'password', Mail::l('Your new password', (int)Configuration::get('PS_LANG_DEFAULT')), $params, $employee->email, $employee->firstname.' '.$employee->lastname))
 			{
 				// Update employee only if the mail can be sent
 				$result = $employee->update();

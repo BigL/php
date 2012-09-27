@@ -35,7 +35,7 @@ class AdminShopControllerCore extends AdminController
 		$this->className = 'Shop';
 		$this->multishop_context = Shop::CONTEXT_ALL;
 		$this->id_shop_group = Tools::getValue('id_shop_group');
-
+		$this->list_skip_actions['delete'] = array((int)Configuration::get('PS_SHOP_DEFAULT'));
 		$this->fields_list = array(
 			'id_shop' => array(
 				'title' => $this->l('ID'),
@@ -149,7 +149,7 @@ class AdminShopControllerCore extends AdminController
 		$this->list_simple_header = true;
 		parent::initContent();
 
-		$this->addJqueryPlugin('cooki');
+		$this->addJqueryPlugin('cookie-plugin');
 		$this->addJqueryPlugin('jstree');
 		$this->addCSS(_PS_JS_DIR_.'jquery/plugins/jstree/themes/classic/style.css');
 
@@ -224,9 +224,22 @@ class AdminShopControllerCore extends AdminController
 			else if (Shop::getTotalShops() == 1)
 				$this->errors[] = Tools::displayError('You cannot disable the last shop.');
 		}*/
+		
+		if (Tools::isSubmit('submitAddshopAndStay') || Tools::isSubmit('submitAddshop'))
+		{
+			$same_name = Db::getInstance()->getValue('
+			SELECT id_shop
+			FROM '._DB_PREFIX_.'shop
+			WHERE name = "'.pSQL(Tools::getValue('name')).'"
+			AND id_shop_group = '.(int)Tools::getValue('id_shop_group').'
+			'.(Tools::getValue('id_shop') ? 'AND id_shop != '.(int)Tools::getValue('id_shop') : ''));
+			if ($same_name)
+				$this->errors[] = Tools::displayError('You cannot have 2 shops with the same name in the same group');
+		}
 
-		if ($this->errors)
+		if (count($this->errors))
 			return false;
+
 		$result = parent::postProcess();
 
 		if ($this->redirect_after)
@@ -311,6 +324,8 @@ class AdminShopControllerCore extends AdminController
 				array(
 					'type' => 'text',
 					'label' => $this->l('Shop name:'),
+					'desc' => $this->l('This field do not refer to the shop name visible on the front office.').' '.
+						sprintf($this->l('Follow %sthis link%s to edit the shop name used on the front office.'), '<a href="'.$this->context->link->getAdminLink('AdminStores').'">', '</a>'),
 					'name' => 'name',
 					'required' => true,
 				)
@@ -340,9 +355,9 @@ class AdminShopControllerCore extends AdminController
 			}
 
 			if ($this->display == 'add')
-				$group_desc = $this->l('Warning: you won\'t be able to change the group of this shop if this shop belong to a group with one of these options "share customers" or "share quantities" or "share orders" activated.');
+				$group_desc = $this->l('Warning: you won\'t be able to change the group of this shop if this shop belongs to a group with one of these options activated: Share Customers, Share Quantities or Share Orders');
 			else
-				$group_desc = $this->l('You can only move your shop to a shop group with all "share" options disabled or to a shop group with no customers / orders.');
+				$group_desc = $this->l('You can only move your shop to a shop group with all "share" options disabled or to a shop group with no customers/orders.');
 
 			$this->fields_form['input'][] = array(
 				'type' => 'select',
@@ -376,6 +391,7 @@ class AdminShopControllerCore extends AdminController
 		$this->fields_form['input'][] = array(
 			'type' => 'select',
 			'label' => $this->l('Category root:'),
+			'desc' => $this->l('This is the root category of the store that you create. To define a new root category for your store').'&nbsp;<a href="'.$this->context->link->getAdminLink('AdminCategories').'&addcategoryroot">'.$this->l('Click here').'</a>',
 			'name' => 'id_category',
 			'options' => array(
 				'query' => $categories,
@@ -395,7 +411,8 @@ class AdminShopControllerCore extends AdminController
 			'type' => 'categories_select',
 			'name' => 'categoryBox',
 			'label' => $this->l('Associated categories:'),
-			'category_tree' => $this->initCategoriesAssociation($parent)
+			'category_tree' => $this->initCategoriesAssociation($parent),
+			'desc' => $this->l('By selecting categories associated, you choose to share the categories between different shops. Once associated between the shops, any alteration of an associated category will impact all the shops for which those categories will be associated.')
 		);
 		/*$this->fields_form['input'][] = array(
 			'type' => 'radio',
@@ -472,14 +489,18 @@ class AdminShopControllerCore extends AdminController
 			'tax_rules_group' => $this->l('Tax rules groups'),
 			'supplier' => $this->l('Suppliers'),
 			'referrer' => $this->l('Referrers'),
+			'zone' => $this->l('Zones'),
+			'cart_rule' => $this->l('Cart rules'),
 		);
-
+		
 		// Hook for duplication of shop data
 		$modules_list = Hook::getHookModuleExecList('actionShopDataDuplication');
 		if (is_array($modules_list) && count($modules_list) > 0)
 			foreach ($modules_list as $m)
 				$import_data['Module'.ucfirst($m['module'])] = Module::getModuleName($m['module']);
 
+		asort($import_data);
+				
 		if (!$this->object->id)
 			$this->fields_import_form = array(
 				'radio' => array(
@@ -509,14 +530,20 @@ class AdminShopControllerCore extends AdminController
             'id_shop_group' => (Tools::getValue('id_shop_group') ? Tools::getValue('id_shop_group') :
                 (isset($obj->id_shop_group)) ? $obj->id_shop_group : Shop::getContextShopGroupID()),
             'id_category' => (Tools::getValue('id_category') ? Tools::getValue('id_category') :
-                (isset($obj->id_shop_group)) ? $obj->id_shop_group : Shop::getContextShopGroupID()),
+                (isset($obj->id_category)) ? $obj->id_category : (int)Configuration::get('PS_HOME_CATEGORY')),
 			'id_theme_checked' => (isset($obj->id_theme) ? $obj->id_theme : $id_theme)
 		);
+
+		$ids_category = array();
+		$shops = Shop::getShops(false);
+		foreach ($shops as $shop)
+			$ids_category[$shop['id_shop']] = $shop['id_category'];
 
 		$this->tpl_form_vars = array(
 			'disabled' => $disabled,
 			'checked' => (Tools::getValue('addshop') !== false) ? true : false,
 			'defaultShop' => (int)Configuration::get('PS_SHOP_DEFAULT'),
+			'ids_category' => $ids_category,
 		);
 		if (isset($this->fields_import_form))
 			$this->tpl_form_vars = array_merge($this->tpl_form_vars, array('form_import' => $this->fields_import_form));
@@ -530,8 +557,12 @@ class AdminShopControllerCore extends AdminController
 	 */
 	public function processAdd()
 	{
+		if (!Tools::getValue('categoryBox') || !in_array(Tools::getValue('id_category'), Tools::getValue('categoryBox')))
+			$this->errors[] = $this->l('You need to select at least the root category.');
+
 		if (Tools::isSubmit('id_category_default'))
 			$_POST['id_category'] = (int)Tools::getValue('id_category_default');
+	
 		/* Checking fields validity */
 		$this->validateRules();
 
@@ -570,9 +601,6 @@ class AdminShopControllerCore extends AdminController
 			return;
 		}
 
-		// datas to import
-		$import_data = Tools::getValue('importData');
-
 		// specific import for stock
 		if (isset($import_data['stock_available']) && isset($import_data['product']) && Tools::isSubmit('useImportData'))
 		{
@@ -581,9 +609,7 @@ class AdminShopControllerCore extends AdminController
 				StockAvailable::copyStockAvailableFromShopToShop($id_src_shop, $object->id);
 		}
 
-		// if we import datas from another shop, we do not update the shop categories
-		if (!isset($import_data['category']))
-			Category::updateFromShop(Tools::getValue('categoryBox'), $object->id);
+		Category::updateFromShop(Tools::getValue('categoryBox'), $object->id);
 
 		return $object;
 	}
@@ -610,7 +636,7 @@ class AdminShopControllerCore extends AdminController
 			$root_category = new Category($shop->id_category);
 		else
 			$root_category = new Category($id_root);
-		$root_category = array('id_category' => $root_category->id_category, 'name' => $root_category->name[$this->context->language->id]);
+		$root_category = array('id_category' => $root_category->id, 'name' => $root_category->name[$this->context->language->id]);
 
 		$helper = new Helper();
 		return $helper->renderCategoryTree($root_category, $selected_cat, 'categoryBox', false, true);

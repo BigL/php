@@ -26,14 +26,13 @@
 */
 
 /* Debug only */
-@ini_set('display_errors', 'on');
-
-define('_PS_DEBUG_SQL_', true);
+@ini_set('display_errors', 'off');
+define('_PS_DEBUG_SQL_', false);
 
 $start_time = microtime(true);
 
 /* Compatibility warning */
-define('_PS_DISPLAY_COMPATIBILITY_WARNING_', true);
+define('_PS_DISPLAY_COMPATIBILITY_WARNING_', false);
 
 /* SSL configuration */
 define('_PS_SSL_PORT_', 443);
@@ -115,9 +114,14 @@ $cookieLifetime = (time() + (((int)Configuration::get('PS_COOKIE_LIFETIME_BO') >
 if (defined('_PS_ADMIN_DIR_'))
 	$cookie = new Cookie('psAdmin', '', $cookieLifetime);
 else
-	$cookie = new Cookie('ps'.Context::getContext()->shop->id, '', $cookieLifetime);
-Context::getContext()->cookie = $cookie;
+{
+	if (Context::getContext()->shop->getGroup()->share_order)
+		$cookie = new Cookie('ps-sg'.Context::getContext()->shop->getGroup()->id, '', $cookieLifetime, Context::getContext()->shop->getUrlsSharedCart());
+	else
+		$cookie = new Cookie('ps-s'.Context::getContext()->shop->id, '', $cookieLifetime);
+}
 
+Context::getContext()->cookie = $cookie;
 /* Create employee if in BO, customer else */
 if (defined('_PS_ADMIN_DIR_'))
 {
@@ -136,24 +140,15 @@ else
 	{
 		$customer = new Customer($cookie->id_customer);
 		$customer->logged = $cookie->logged;
-
-		if (!isset($cookie->id_cart))
-		{
-			$shops_share = Shop::getContextListShopID(Shop::SHARE_ORDER);
-			$id_cart = Db::getInstance()->getValue('SELECT `id_cart` FROM `'._DB_PREFIX_.'cart` WHERE `id_customer` = "'.(int)$customer->id.'" AND `id_shop` IN ("'.implode('","', $shops_share).'") ORDER BY `id_cart` DESC');
-			if ($id_cart != false)
-				$cookie->id_cart = $id_cart;
-		}
 	}
 	else
 	{
 		$customer = new Customer();
-
-		// Change the default group
+		
+		// Change the default group 
 		if (Group::isFeatureActive())
 			$customer->id_default_group = Configuration::get('PS_UNIDENTIFIED_GROUP');
 	}
-
 	$customer->id_guest = $cookie->id_guest;
 	Context::getContext()->customer = $customer;
 }

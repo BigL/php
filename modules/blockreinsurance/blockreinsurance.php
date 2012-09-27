@@ -43,51 +43,8 @@ class Blockreinsurance extends Module
 
 		parent::__construct();
 
-		$this->displayName = $this->l('Bloc reinsurance');
+		$this->displayName = $this->l('Block reinsurance');
 		$this->description = $this->l('Add a block to display more infos to reassure your customers');
-
-		$this->fields_list = array(
-			'id_reinsurance' => array(
-				'title' => $this->l('Id'),
-				'width' => 120,
-				'type' => 'text',
-			),
-			'text' => array(
-				'title' => $this->l('Text'),
-				'width' => 140,
-				'type' => 'text',
-				'filter_key' => 'a!lastname'
-			),
-		);
-
-		if (Shop::isFeatureActive())
-			$this->fields_list['id_shop'] = array('title' => $this->l('ID Shop'), 'align' => 'center', 'width' => 25, 'type' => 'int');
-
-		$this->fields_form[0]['form'] = array(
-			'legend' => array(
-				'title' => $this->l('Reinsurance new block'),
-			),
-			'input' => array(
-				array(
-					'type' => 'file',
-					'label' => $this->l('Image:'),
-					'name' => 'image',
-					'value' => true
-				),
-				array(
-					'type' => 'textarea',
-					'label' => $this->l('Text:'),
-					'lang' => true,
-					'name' => 'text',
-					'cols' => 40,
-					'rows' => 10
-				)
-			),
-			'submit' => array(
-				'title' => $this->l('   Save   '),
-				'class' => 'button'
-			)
-		);
 	}
 
 	public function install()
@@ -179,7 +136,10 @@ class Blockreinsurance extends Module
 		$id_reinsurance = (int)Tools::getValue('id_reinsurance');
 		if (Tools::isSubmit('saveblockreinsurance'))
 		{
-			$reinsurance = new reinsuranceClass();
+			if ($id_reinsurance = Tools::getValue('id_reinsurance'))
+				$reinsurance = new reinsuranceClass((int)$id_reinsurance);
+			else
+				$reinsurance = new reinsuranceClass();
 			$reinsurance->copyFromPost();
 			$reinsurance->id_shop = $this->context->shop->id;
 			
@@ -214,7 +174,12 @@ class Blockreinsurance extends Module
 				}	
 				else
 					$helper->fields_value['text'][(int)$lang['id_lang']] = Tools::getValue('text_'.(int)$lang['id_lang'], '');
-
+			if ($id_reinsurance = Tools::getValue('id_reinsurance'))
+			{
+				$this->fields_form[0]['form']['input'][] = array('type' => 'hidden', 'name' => 'id_reinsurance');
+				$helper->fields_value['id_reinsurance'] = (int)$id_reinsurance;
+ 			}
+				
 			return $html.$helper->generateForm($this->fields_form);
 		}
 		else if (Tools::isSubmit('deleteblockreinsurance'))
@@ -254,6 +219,32 @@ class Blockreinsurance extends Module
 	{
 		$default_lang = (int)Configuration::get('PS_LANG_DEFAULT');
 
+		$this->fields_form[0]['form'] = array(
+			'legend' => array(
+				'title' => $this->l('Reinsurance new block'),
+			),
+			'input' => array(
+				array(
+					'type' => 'file',
+					'label' => $this->l('Image:'),
+					'name' => 'image',
+					'value' => true
+				),
+				array(
+					'type' => 'textarea',
+					'label' => $this->l('Text:'),
+					'lang' => true,
+					'name' => 'text',
+					'cols' => 40,
+					'rows' => 10
+				)
+			),
+			'submit' => array(
+				'title' => $this->l('   Save   '),
+				'class' => 'button'
+			)
+		);
+
 		$helper = new HelperForm();
 		$helper->module = $this;
 		$helper->name_controller = 'blockreinsurance';
@@ -290,6 +281,23 @@ class Blockreinsurance extends Module
 
 	protected function initList()
 	{
+		$this->fields_list = array(
+			'id_reinsurance' => array(
+				'title' => $this->l('Id'),
+				'width' => 120,
+				'type' => 'text',
+			),
+			'text' => array(
+				'title' => $this->l('Text'),
+				'width' => 140,
+				'type' => 'text',
+				'filter_key' => 'a!lastname'
+			),
+		);
+
+		if (Shop::isFeatureActive())
+			$this->fields_list['id_shop'] = array('title' => $this->l('ID Shop'), 'align' => 'center', 'width' => 25, 'type' => 'int');
+
 		$helper = new HelperList();
 		$helper->shopLinkType = '';
 		$helper->simple_header = true;
@@ -322,12 +330,12 @@ class Blockreinsurance extends Module
 	{
 		$return = true;
 		$tab_texts = array(
-			array('text' => 'Money back', 'file_name' => 'reinsurance-1-1.jpg'),
-			array('text' => 'Exchange in-store', 'file_name' => 'reinsurance-2-1.jpg'),
-			array('text' => 'Payment upon shipment', 'file_name' => 'reinsurance-3-1.jpg'),
-			array('text' => 'Free Shipping', 'file_name' => 'reinsurance-4-1.jpg'),
-			array('text' => '100% secured payment', 'file_name' => 'reinsurance-5-1.jpg')
-			);
+			array('text' => $this->l('Money back'), 'file_name' => 'reinsurance-1-1.jpg'),
+			array('text' => $this->l('Exchange in-store'), 'file_name' => 'reinsurance-2-1.jpg'),
+			array('text' => $this->l('Payment upon shipment'), 'file_name' => 'reinsurance-3-1.jpg'),
+			array('text' => $this->l('Free Shipping'), 'file_name' => 'reinsurance-4-1.jpg'),
+			array('text' => $this->l('100% secured payment'), 'file_name' => 'reinsurance-5-1.jpg')
+		);
 		
 		foreach($tab_texts as $tab)
 		{

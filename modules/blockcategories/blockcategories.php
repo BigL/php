@@ -52,7 +52,7 @@ class BlockCategories extends Module
 			!$this->registerHook('categoryAddition') ||
 			!$this->registerHook('categoryUpdate') ||
 			!$this->registerHook('categoryDeletion') ||
-			!$this->registerHook('actionAdminMetaControllerUpdate_optionsAfter') ||
+			!$this->registerHook('actionAdminMetaControllerUpdate_optionsBefore') ||
 			!Configuration::updateValue('BLOCK_CATEG_MAX_DEPTH', 4) ||
 			!Configuration::updateValue('BLOCK_CATEG_DHTML', 1))
 			return false;
@@ -103,7 +103,7 @@ class BlockCategories extends Module
 				<legend><img src="'.$this->_path.'logo.gif" alt="" title="" />'.$this->l('Settings').'</legend>
 				<label>'.$this->l('Maximum depth').'</label>
 				<div class="margin-form">
-					<input type="text" name="maxDepth" value="'.Configuration::get('BLOCK_CATEG_MAX_DEPTH').'" />
+					<input type="text" name="maxDepth" value="'.(int)Configuration::get('BLOCK_CATEG_MAX_DEPTH').'" />
 					<p class="clear">'.$this->l('Set the maximum depth of sublevels displayed in this block (0 = infinite)').'</p>
 				</div>
 				<label>'.$this->l('Dynamic').'</label>
@@ -129,7 +129,7 @@ class BlockCategories extends Module
 				</div>
 				<label>'.$this->l('Footer columns number').'</label>
 				<div class="margin-form">
-					<input type="text" name="nbrColumns" value="'.Configuration::get('BLOCK_CATEG_NBR_COLUMN_FOOTER').'" />
+					<input type="text" name="nbrColumns" value="'.(int)Configuration::get('BLOCK_CATEG_NBR_COLUMN_FOOTER').'" />
 					<p class="clear">'.$this->l('Set the number of footer columns').'</p>
 				</div>
 				<center><input type="submit" name="submitBlockCategories" value="'.$this->l('Save').'" class="button" /></center>
@@ -156,8 +156,6 @@ class BlockCategories extends Module
 
 	public function hookLeftColumn($params)
 	{
-		$id_current_shop = $this->context->shop->id;
-
 		$id_customer = (int)$params['cookie']->id_customer;
 		// Get all groups for this customer and concatenate them as a string: "1,2,3..."
 		// It is necessary to keep the group query separate from the main select query because it is used for the cache
@@ -165,8 +163,8 @@ class BlockCategories extends Module
 		$id_product = (int)Tools::getValue('id_product', 0);
 		$id_category = (int)Tools::getValue('id_category', 0);
 		$id_lang = (int)$params['cookie']->id_lang;
-		$smartyCacheId = 'blockcategories|'.$id_current_shop.'_'.$groups.'_'.$id_lang.'_'.$id_product.'_'.$id_category;
-
+		$smartyCacheId = 'blockcategories|'.$this->context->shop->id.'_'.$groups.'_'.$id_lang.'_'.$id_product.'_'.$id_category;
+		$this->context->smarty->cache_lifetime = 31536000; // 1 Year
 		Tools::enableCache();
 		if (!$this->isCached('blockcategories.tpl', $smartyCacheId))
 		{
@@ -174,17 +172,13 @@ class BlockCategories extends Module
 			if (!$result = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS('
 				SELECT c.id_parent, c.id_category, cl.name, cl.description, cl.link_rewrite
 				FROM `'._DB_PREFIX_.'category` c
-				LEFT JOIN `'._DB_PREFIX_.'category_lang` cl ON (c.`id_category` = cl.`id_category` AND cl.`id_lang` = '.$id_lang.Shop::addSqlRestrictionOnLang('cl').')
-				LEFT JOIN `'._DB_PREFIX_.'category_group` cg ON (cg.`id_category` = c.`id_category`)
-				LEFT JOIN `'._DB_PREFIX_.'category_shop` cs ON (cs.`id_category` = c.`id_category`)
+				INNER JOIN `'._DB_PREFIX_.'category_lang` cl ON (c.`id_category` = cl.`id_category` AND cl.`id_lang` = '.$id_lang.Shop::addSqlRestrictionOnLang('cl').')
+				INNER JOIN `'._DB_PREFIX_.'category_shop` cs ON (cs.`id_category` = c.`id_category` AND cs.`id_shop` = '.(int)$this->context->shop->id.')
 				WHERE (c.`active` = 1 OR c.`id_category` = '.(int)Configuration::get('PS_HOME_CATEGORY').')
 				AND c.`id_category` != '.(int)Configuration::get('PS_ROOT_CATEGORY').'
-				'.((int)($maxdepth) != 0 ? ' AND `level_depth` <= '.(int)($maxdepth) : '').'
-				AND cg.`id_group` IN ('.pSQL($groups).')
-				AND cs.`id_shop` = '.(int)Context::getContext()->shop->id.'
-				GROUP BY id_category
+				'.((int)$maxdepth != 0 ? ' AND `level_depth` <= '.(int)$maxdepth : '').'
+				AND c.id_category IN (SELECT id_category FROM `'._DB_PREFIX_.'category_group` WHERE `id_group` IN ('.pSQL($groups).'))
 				ORDER BY `level_depth` ASC, '.(Configuration::get('BLOCK_CATEG_SORT') ? 'cl.`name`' : 'cs.`position`').' '.(Configuration::get('BLOCK_CATEG_SORT_WAY') ? 'DESC' : 'ASC')))
-
 				return Tools::restoreCacheSettings();
 
 			$resultParents = array();
@@ -207,11 +201,13 @@ class BlockCategories extends Module
 			}
 			if (Tools::isSubmit('id_product'))
 			{
-				if (!isset($this->context->cookie->last_visited_category) || !Product::idIsOnCategoryId($id_product, array('0' => array('id_category' => $this->context->cookie->last_visited_category))))
+				if (!isset($this->context->cookie->last_visited_category)
+					|| !Product::idIsOnCategoryId($id_product, array('0' => array('id_category' => $this->context->cookie->last_visited_category)))
+					|| !Category::inShopStatic($this->context->cookie->last_visited_category, $this->context->shop))
 				{
 					$product = new Product($id_product);
 					if (isset($product) && Validate::isLoadedObject($product))
-						$this->context->cookie->last_visited_category = (int)($product->id_category_default);
+						$this->context->cookie->last_visited_category = (int)$product->id_category_default;
 				}
 				$this->smarty->assign('currentCategoryId', (int)$this->context->cookie->last_visited_category);
 			}
@@ -223,7 +219,6 @@ class BlockCategories extends Module
 				$this->smarty->assign('branche_tpl_path', _PS_MODULE_DIR_.'blockcategories/category-tree-branch.tpl');
 			$this->smarty->assign('isDhtml', $isDhtml);
 		}
-		$this->context->smarty->cache_lifetime = 31536000; // 1 Year
 		$display = $this->display(__FILE__, 'blockcategories.tpl', $smartyCacheId);
 		Tools::restoreCacheSettings();
 		return $display;
@@ -231,16 +226,14 @@ class BlockCategories extends Module
 
 	public function hookFooter($params)
 	{
-		$id_current_shop = $this->context->shop->id;
-
 		$id_customer = (int)($params['cookie']->id_customer);
 		// Get all groups for this customer and concatenate them as a string: "1,2,3..."
 		$groups = $id_customer ? implode(', ', Customer::getGroupsStatic($id_customer)) : _PS_DEFAULT_CUSTOMER_GROUP_;
 		$id_product = (int)(Tools::getValue('id_product', 0));
 		$id_category = (int)(Tools::getValue('id_category', 0));
 		$id_lang = (int)($params['cookie']->id_lang);
-		$smartyCacheId = 'blockcategories|'.$id_current_shop.'_'.$groups.'_'.$id_lang.'_'.$id_product.'_'.$id_category;
-
+		$smartyCacheId = 'blockcategories|'.$this->context->shop->id.'_'.$groups.'_'.$id_lang.'_'.$id_product.'_'.$id_category;
+		$this->context->smarty->cache_lifetime = 31536000; // 1 Year
 		Tools::enableCache();
 		if (!$this->isCached('blockcategories_footer.tpl', $smartyCacheId))
 		{
@@ -255,7 +248,7 @@ class BlockCategories extends Module
 				WHERE (c.`active` = 1 OR c.`id_category` = 1)
 				'.((int)($maxdepth) != 0 ? ' AND `level_depth` <= '.(int)($maxdepth) : '').'
 				AND cg.`id_group` IN ('.pSQL($groups).')
-				ORDER BY `level_depth` ASC, '.(Configuration::get('BLOCK_CATEG_SORT') ? 'cl.`name`' : 'c.`position`').' '.(Configuration::get('BLOCK_CATEG_SORT_WAY') ? 'DESC' : 'ASC')))
+				ORDER BY `level_depth` ASC, '.(Configuration::get('BLOCK_CATEG_SORT') ? 'cl.`name`' : 'category_shop.`position`').' '.(Configuration::get('BLOCK_CATEG_SORT_WAY') ? 'DESC' : 'ASC')))
 				return;
 			$resultParents = array();
 			$resultIds = array();
@@ -302,7 +295,6 @@ class BlockCategories extends Module
 				$this->smarty->assign('branche_tpl_path', _PS_MODULE_DIR_.'blockcategories/category-tree-branch.tpl');
 			$this->smarty->assign('isDhtml', $isDhtml);
 		}
-		$this->context->smarty->cache_lifetime = 31536000; // 1 Year
 		$display = $this->display(__FILE__, 'blockcategories_footer.tpl', $smartyCacheId);
 		Tools::restoreCacheSettings();
 		return $display;
@@ -322,7 +314,6 @@ class BlockCategories extends Module
 	private function _clearBlockcategoriesCache()
 	{
 		$this->_clearCache('blockcategories.tpl');
-		Tools::restoreCacheSettings();
 	}
 
 	public function hookCategoryAddition($params)
@@ -340,7 +331,7 @@ class BlockCategories extends Module
 		$this->_clearBlockcategoriesCache();
 	}
 
-	public function hookActionAdminMetaControllerUpdate_optionsAfter($params)
+	public function hookActionAdminMetaControllerUpdate_optionsBefore($params)
 	{
 		$this->_clearBlockcategoriesCache();
 	}

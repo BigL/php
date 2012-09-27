@@ -40,6 +40,9 @@ class OrderDetailCore extends ObjectModel
 	public $product_id;
 
 	/** @var integer */
+	public $id_shop;
+
+	/** @var integer */
 	public $product_attribute_id;
 
 	/** @var string */
@@ -62,6 +65,9 @@ class OrderDetailCore extends ObjectModel
 
 	/** @var float */
 	public $product_price;
+
+	/** @var float */
+	public $original_product_price;
 
 	/** @var float */
 	public $unit_price_tax_incl;
@@ -132,6 +138,9 @@ class OrderDetailCore extends ObjectModel
 	/** @var float $tax_rate **/
 	public $tax_rate;
 
+	/** @var float $tax_computation_method **/
+	public $tax_computation_method;
+
 	/** @var int Id warehouse */
 	public $id_warehouse;
 
@@ -140,6 +149,9 @@ class OrderDetailCore extends ObjectModel
 
     /** @var float additional shipping price tax incl */
     public $total_shipping_price_tax_incl;
+
+	/** @var float */
+	public $purchase_supplier_price;
 
 	/**
 	 * @see ObjectModel::$definition
@@ -151,6 +163,7 @@ class OrderDetailCore extends ObjectModel
 			'id_order' => 					array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
 			'id_order_invoice' => 			array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId'),
 			'id_warehouse' => 				array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
+			'id_shop' => 				array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
 			'product_id' => 				array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId'),
 			'product_attribute_id' =>		array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId'),
 			'product_name' => 				array('type' => self::TYPE_STRING, 'validate' => 'isGenericName', 'required' => true),
@@ -173,6 +186,7 @@ class OrderDetailCore extends ObjectModel
 			'product_weight' => 			array('type' => self::TYPE_FLOAT, 'validate' => 'isFloat'),
 			'tax_name' => 					array('type' => self::TYPE_STRING, 'validate' => 'isGenericName'),
 			'tax_rate' => 					array('type' => self::TYPE_FLOAT, 'validate' => 'isFloat'),
+			'tax_computation_method' =>		array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId'),
 			'ecotax' => 					array('type' => self::TYPE_FLOAT, 'validate' => 'isFloat'),
 			'ecotax_tax_rate' => 			array('type' => self::TYPE_FLOAT, 'validate' => 'isFloat'),
 			'discount_quantity_applied' => 	array('type' => self::TYPE_INT, 'validate' => 'isInt'),
@@ -183,6 +197,8 @@ class OrderDetailCore extends ObjectModel
 			'unit_price_tax_excl' => 		array('type' => self::TYPE_FLOAT, 'validate' => 'isPrice'),
 			'total_price_tax_incl' => 		array('type' => self::TYPE_FLOAT, 'validate' => 'isPrice'),
 			'total_price_tax_excl' => 		array('type' => self::TYPE_FLOAT, 'validate' => 'isPrice'),
+			'purchase_supplier_price' => 	array('type' => self::TYPE_FLOAT, 'validate' => 'isPrice'),
+			'original_product_price' => 	array('type' => self::TYPE_FLOAT, 'validate' => 'isPrice')
 		),
 	);
 
@@ -304,6 +320,9 @@ class OrderDetailCore extends ObjectModel
 		if (count($this->tax_calculator->taxes) == 0)
 			return true;
 
+		if ($order->total_products <= 0)
+			return true;
+
 		$ratio = $this->unit_price_tax_excl / $order->total_products;
 		$order_reduction_amount = $order->total_discounts_tax_excl * $ratio;
 		$discounted_price_tax_excl = $this->unit_price_tax_excl - $order_reduction_amount;
@@ -330,12 +349,7 @@ class OrderDetailCore extends ObjectModel
 	 */
 	public static function getList($id_order)
 	{
-		$sql = '
-			SELECT *
-			FROM `'._DB_PREFIX_.'order_detail`
-			WHERE `id_order` = '.(int)$id_order;
-
-		return Db::getInstance()->executeS($sql);
+		return Db::getInstance()->executeS('SELECT * FROM `'._DB_PREFIX_.'order_detail` WHERE `id_order` = '.(int)$id_order);
 	}
 
 	/*
@@ -396,13 +410,14 @@ class OrderDetailCore extends ObjectModel
 
 			$tax_manager = TaxManagerFactory::getManager($this->vat_address, $id_tax_rules);
 			$this->tax_calculator = $tax_manager->getTaxCalculator();
+			$this->tax_computation_method = (int)$this->tax_calculator->computation_method;
 		}
 
 		$this->ecotax_tax_rate = 0;
 		if (!empty($product['ecotax']))
 			$this->ecotax_tax_rate = Tax::getProductEcotaxRate($order->{Configuration::get('PS_TAX_ADDRESS_TYPE')});
 
-		$this->tax_computation_method = (int)$this->tax_calculator->computation_method;
+
 	}
 
 	/**
@@ -413,6 +428,8 @@ class OrderDetailCore extends ObjectModel
 	{
 		$this->reduction_amount = 0.00;
 		$this->reduction_percent = 0.00;
+		$this->reduction_amount_tax_incl = 0.00;
+		$this->reduction_amount_tax_excl = 0.00;
 
 		if ($this->specificPrice)
 			switch ($this->specificPrice['reduction_type'])
@@ -424,9 +441,14 @@ class OrderDetailCore extends ObjectModel
 				case 'amount':
 					$price = Tools::convertPrice($this->specificPrice['reduction'], $order->id_currency);
 					$this->reduction_amount = (float)(!$this->specificPrice['id_currency'] ?
-						$price : $this->specificPrice['reduction']);
+					$price : $this->specificPrice['reduction']);
+
+					$id_tax_rules = (int)Product::getIdTaxRulesGroupByIdProduct((int)$this->specificPrice['id_product']);
+					$tax_manager = TaxManagerFactory::getManager($this->vat_address, $id_tax_rules);
+					$this->tax_calculator = $tax_manager->getTaxCalculator();
+
                     $this->reduction_amount_tax_incl = $this->reduction_amount;
-                    $this->reduction_amount_tax_excl = Tools::ps_round($this->tax_calculator->removeTaxes($this->reduction_amount_tax_incl), 2);
+					$this->reduction_amount_tax_excl = Tools::ps_round($this->tax_calculator->removeTaxes($this->reduction_amount_tax_incl), 2);
 				break;
 			}
 	}
@@ -439,19 +461,11 @@ class OrderDetailCore extends ObjectModel
 	 */
 	protected function setDetailProductPrice(Order $order, Cart $cart, $product)
 	{
-		$customer = new Customer((int)$order->id_customer);
-		$customer_address = new Address((int)$order->{Configuration::get('PS_TAX_ADDRESS_TYPE')});
+		Product::getPriceStatic((int)$product['id_product'], true, (int)$product['id_product_attribute'], 6, null, false, true, $product['cart_quantity'], false, (int)$order->id_customer, (int)$order->id_cart, (int)$order->{Configuration::get('PS_TAX_ADDRESS_TYPE')}, $specific_price);
+		$this->specificPrice = $specific_price;
 
-		$this->specificPrice = SpecificPrice::getSpecificPrice(
-			(int)$product['id_product'],
-			(int)$order->id_shop,
-			(int)$order->id_currency,
-			(int)$customer_address->id_country,
-			(int)$customer->id_default_group,
-			(int)$product['cart_quantity']
-		);
-
-		$this->product_price = (float)$product['price'];
+		$this->original_product_price = Product::getPriceStatic($product['id_product'], false, (int)$product['id_product_attribute'], 6, null, false, false, 1, false);
+		$this->product_price = $this->original_product_price;
 		$this->unit_price_tax_incl = (float)$product['price_wt'];
 		$this->unit_price_tax_excl = (float)$product['price'];
 		$this->total_price_tax_incl = (float)$product['total_wt'];
@@ -478,10 +492,16 @@ class OrderDetailCore extends ObjectModel
 			($product['id_product_attribute'] ? intval($product['id_product_attribute']) : null),
 			2, null, false, true, 1, false, (int)$order->id_customer, null, (int)$order->{Configuration::get('PS_TAX_ADDRESS_TYPE')});
 
-		$this->product_quantity_discount = (float)($quantityDiscount ?
-			((Product::getTaxCalculationMethod((int)$order->id_customer) == PS_TAX_EXC ?
-				Tools::ps_round($unitPrice, 2) : $unitPrice) - $this->tax_calculator->addTaxes($quantityDiscount['price'])) :
-				0.00);
+		$this->product_quantity_discount = 0.00;
+		if ($quantityDiscount)
+		{
+			$this->product_quantity_discount = $unitPrice;
+			if (Product::getTaxCalculationMethod((int)$order->id_customer) == PS_TAX_EXC)
+				$this->product_quantity_discount = Tools::ps_round($unitPrice, 2);
+
+			if (isset($this->tax_calculator))
+				$this->product_quantity_discount -= $this->tax_calculator->addTaxes($quantityDiscount['price']);
+		}
 
 		$this->discount_quantity_applied = (($this->specificPrice && $this->specificPrice['from_quantity'] > 1) ? 1 : 0);
 	}
@@ -504,9 +524,9 @@ class OrderDetailCore extends ObjectModel
 
 		$this->product_id = (int)($product['id_product']);
 		$this->product_attribute_id = (int)($product['id_product_attribute'] ? (int)($product['id_product_attribute']) : null);
-		$this->product_name = pSQL($product['name'].
+		$this->product_name = $product['name'].
 			((isset($product['attributes']) && $product['attributes'] != null) ?
-				' - '.$product['attributes'] : ''));
+				' - '.$product['attributes'] : '');
 
 		$this->product_quantity = (int)($product['cart_quantity']);
 		$this->product_ean13 = empty($product['ean13']) ? null : pSQL($product['ean13']);
@@ -530,7 +550,10 @@ class OrderDetailCore extends ObjectModel
 
 		// Set order invoice id
 		$this->id_order_invoice = (int)$id_order_invoice;
-
+		
+		// Set shop id
+		$this->id_shop = (int)$product['id_shop'];
+		
 		// Add new entry to the table
 		$this->save();
 

@@ -119,15 +119,18 @@ class SpecificPriceRuleCore extends ObjectModel
 
 	public function apply($products = false)
 	{
-		$this->resetApplication();
+		$this->resetApplication($products);
 		$products = $this->getAffectedProducts($products);
 		foreach ($products as $product)
 			SpecificPriceRule::applyRuleToProduct((int)$this->id, (int)$product['id_product'], (int)$product['id_product_attribute']);
 	}
 
-	public function resetApplication()
+	public function resetApplication($products = false)
 	{
-		return Db::getInstance()->execute('DELETE FROM '._DB_PREFIX_.'specific_price WHERE id_specific_price_rule='.(int)$this->id);
+		$where = '';
+		if ($products && count($products))
+			$where .= ' AND id_product IN ('.implode(', ', array_map('intval', $products)).')';
+		return Db::getInstance()->execute('DELETE FROM '._DB_PREFIX_.'specific_price WHERE id_specific_price_rule='.(int)$this->id.$where);
 	}
 
 	public static function applyAllRules($products = false)
@@ -178,6 +181,7 @@ class SpecificPriceRuleCore extends ObjectModel
 		$attributes = false;
 		$categories = false;
 		$features = false;
+		$suppliers = false;
 		$where = false;
 
 		if ($conditions_group)
@@ -185,32 +189,53 @@ class SpecificPriceRuleCore extends ObjectModel
 			$where = '(';
 			foreach ($conditions_group as $id_condition_group => $condition_group)
 			{
+				$fields = array(
+					'category' => array(
+						'name' => 'cp.id_category',
+						'values' => array()
+					),
+					'manufacturer' => array(
+						'name' => 'p.id_manufacturer',
+						'values' => array(),
+					),
+					'supplier' => array(
+						'name' => 'pss.id_supplier',
+						'values' => array()
+					),
+					'feature' => array(
+						'name' => 'fp.id_feature_value',
+						'values' => array()
+					),
+					'attribute' => array(
+						'name'=> 'pac.id_attribute',
+						'values' => array()
+					)
+				);
+				
 				foreach ($condition_group as $condition)
 				{
-					$field = false;
 					if ($condition['type'] == 'category')
-					{
-						$field = 'cp.id_category';
 						$categories = true;
-					}
-					elseif ($condition['type'] == 'manufacturer')
-						$field = 'p.id_manufacturer';
-					elseif ($condition['type'] == 'supplier')
-						$field = 'p.id_supplier';
 					elseif ($condition['type'] == 'feature')
-					{
-						$field = 'fp.id_feature_value';
 						$features = true;
-					}
 					elseif ($condition['type'] == 'attribute')
-					{
-						$field = 'pac.id_attribute';
 						$attributes = true;
-					}
-					if ($field)
-						$where .= $field.'='.(int)$condition['value'].' AND ';
-
+					elseif ($condition['type'] == 'supplier')
+						$suppliers = true;
+						
+					$fields[$condition['type']]['values'][] = $condition['value'];
 				}
+				
+				foreach ($fields as $field)
+				{
+					if (!$n_conditions = count($field['values']))
+						continue;
+
+					$where .= $field['name'].' IN ('.implode(',', array_map('intval', $field['values'])).') AND ';
+					if ($n_conditions > 1)
+						$query->having('COUNT('.bqSQL($field['name']).') >='.(int)$n_conditions);
+				}
+				
 				$where = rtrim($where, ' AND ').') OR (';
 			}
 			$where = rtrim($where, 'OR (');
@@ -230,9 +255,13 @@ class SpecificPriceRuleCore extends ObjectModel
 			$query->select('NULL as id_product_attribute');
 
 		if ($features)
-			$query->leftJoin('feature_product', 'fp', 'p.id_product = fp.id_product');
+			$query->leftJoin('feature_product', 'fp', 'p.id_product = fp.id_product');			
 		if ($categories)
 			$query->leftJoin('category_product', 'cp', 'p.id_product = cp.id_product');
+
+		if ($suppliers)
+			$query->leftJoin('product_supplier', 'pss', 'p.id_product = pss.id_product');
+
 		if ($where)
 			$query->where($where);
 

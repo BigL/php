@@ -21,7 +21,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 14895 $
+*  @version  Release: $Revision: 16624 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -69,6 +69,10 @@ class TaxRulesTaxManagerCore implements TaxManagerInterface
 		if (isset($this->tax_calculator))
 			return $this->tax_calculator;
 
+		$taxes = array();
+		if (!Configuration::get('PS_TAX'))
+			return new TaxCalculator($taxes);
+
 		$postcode = 0;
 		if (!empty($this->address->postcode))
 			$postcode = $this->address->postcode;
@@ -86,7 +90,6 @@ class TaxRulesTaxManagerCore implements TaxManagerInterface
 
 			$behavior = 0;
 			$first_row = true;
-			$taxes = array();
 
 			foreach ($rows as $row)
 			{

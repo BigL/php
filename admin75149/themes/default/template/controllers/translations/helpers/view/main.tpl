@@ -19,7 +19,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 15443 $
+*  @version  Release: $Revision: 17088 $
 *  @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 *}
@@ -68,7 +68,8 @@
 			</select>
 			<select name="theme" style="float:left; margin-right:10px;">
 				{foreach $themes as $theme}
-					<option value="{$theme->directory}">{$theme->name} &nbsp;</option>
+
+					<option value="{$theme->directory}" {if $id_theme_current == $theme->id}selected=selected{/if}>{$theme->name} &nbsp;</option>
 				{/foreach}
 			</select>
 			{foreach $languages as $language}
@@ -152,7 +153,7 @@
 			&nbsp;&nbsp;&nbsp;
 			<select name="theme" style="margin-top:10px;">
 				{foreach $themes as $theme}
-					<option value="{$theme->directory}">{$theme->name}</option>
+					<option value="{$theme->directory}" {if $id_theme_current == $theme->id}selected=selected{/if}>{$theme->name}</option>
 				{/foreach}
 			</select>&nbsp;&nbsp;
 			<input type="submit" class="button" name="submitExport" value="{l s='Export'}" />
@@ -176,7 +177,7 @@
 					&nbsp;&nbsp;&nbsp;
 					<select name="fromTheme">
 						{foreach $themes as $theme}
-							<option value="{$theme->directory}">{$theme->name}</option>
+							<option value="{$theme->directory}" {if $id_theme_current == $theme->id}selected=selected{/if}>{$theme->name}</option>
 						{/foreach}
 					</select> <span style="font-style: bold; color: red;">*</span>
 				</p>
@@ -190,7 +191,7 @@
 					&nbsp;&nbsp;&nbsp;
 					<select name="toTheme">
 						{foreach $themes as $theme}
-							<option value="{$theme->directory}">{$theme->name}</option>
+							<option value="{$theme->directory}" {if $id_theme_current == $theme->id}selected=selected{/if}>{$theme->name}</option>
 						{/foreach}
 					</select>
 				</p>
@@ -198,7 +199,7 @@
 			<div style="float:left;">
 				<input type="submit" value="{l s='   Copy   '}" name="submitCopyLang" class="button" style="margin:25px 0px 0px 25px;" />
 			</div>
-			<p style="clear: left; padding: 16px 0px 0px 0px;"><span style="font-style: bold; color: red;">*</span> {l s='Language files (as indicated at Tools > Languages > Edition) must be complete to allow copying of translations'}</p>
+			<p style="clear: left; padding: 16px 0px 0px 0px;"><span style="font-style: bold; color: red;">*</span> {l s='Language files must be complete to allow copying of translations'}</p>
 		</fieldset>
 	</form>
 {/block}

@@ -20,7 +20,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 15523 $
+*  @version  Release: $Revision: 17187 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -177,7 +177,7 @@ abstract class ControllerCore
 			if ($this->ajax)
 			{
 				$action = Tools::getValue('action');
-				if (!empty($action) && method_exists($this, 'displayAjax'.Tools::toCamelCase($action)))
+				if (!empty($action) && method_exists($this, 'displayAjax'.Tools::toCamelCase($action, true)))
 					$this->{'displayAjax'.$action}();
 				elseif (method_exists($this, 'displayAjax'))
 					$this->displayAjax();

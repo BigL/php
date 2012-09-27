@@ -157,7 +157,8 @@ class AdminSpecificPriceRuleControllerCore extends AdminController
 						'id' => 'id_shop',
 						'name' => 'name'
 					),
-					'condition' => Shop::isFeatureActive()
+					'condition' => Shop::isFeatureActive(),
+					'default_value' => Shop::getContextShopID()
 				),
 				array(
 					'type' => 'select',
@@ -257,15 +258,16 @@ class AdminSpecificPriceRuleControllerCore extends AdminController
 				'class' => 'button'
 			),
 		);
-		if ($value = $this->getFieldValue($this->object, 'price') != -1)	
+		if (($value = $this->getFieldValue($this->object, 'price')) != -1)	
 			$price = number_format($value, 2);
 		else
 			$price = '';
+
 		$this->fields_value = array(
 										'price' => $price,
 										'from_quantity' => (($value = $this->getFieldValue($this->object, 'from_quantity')) ? $value : 1),
 										'reduction' => number_format((($value = $this->getFieldValue($this->object, 'reduction')) ? $value : 0), 2),
-										'leave_bprice_on' => ($value = $this->getFieldValue($this->object, 'price')) ? $value : 1
+										'leave_bprice_on' => $price ? 0 : 1
 									);
 
 		$attribute_groups = array();
@@ -318,6 +320,7 @@ class AdminSpecificPriceRuleControllerCore extends AdminController
 				}
 			}
 			$object->apply();
+			return $object;
 		}
 	}
 }

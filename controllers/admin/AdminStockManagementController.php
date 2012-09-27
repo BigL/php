@@ -108,9 +108,9 @@ class AdminStockManagementControllerCore extends AdminController
 		$this->displayInformation($this->l('This interface allows you to manage the stocks of each of your products and their variations.').'<br />');
 		$this->displayInformation($this->l('Through this interface, you can increase quantities (add) and decrease quantities (delete) of products for a given warehouse.'));
 		$this->displayInformation($this->l('Furthermore, you can move quantities of (transfer) products between warehouses, or within one warehouse.').'<br />');
-		$this->displayInformation($this->l('Note that if you want to increase quantities of multiple products at once, you can use the supply orders tab.').'<br />');
+		$this->displayInformation($this->l('Note that if you want to increase quantities of multiple products at once, you can use the "Supply orders" page under the "Stock" menu.').'<br />');
 		$this->displayInformation($this->l('Finally, you will be asked to specify the state of the quantity you will add:'));
-		$this->displayInformation($this->l('usable for sale means that this quantity will be available in your shop(s),'));
+		$this->displayInformation($this->l('Usable for sale means that this quantity will be available in your shop(s),'));
 		$this->displayInformation($this->l('otherwise it will be considered reserved (i.e. for other purposes).'));
 
 		return parent::renderList();
@@ -729,7 +729,7 @@ class AdminStockManagementControllerCore extends AdminController
 					$usable_from,
 					$usable_to
 				);
-
+				StockAvailable::synchronize($id_product);
 				if ($is_transfer)
 					Tools::redirectAdmin($redirect.'&conf=3');
 				else
@@ -951,6 +951,12 @@ class AdminStockManagementControllerCore extends AdminController
 	 */
 	public function initContent()
 	{
+		if (!Configuration::get('PS_ADVANCED_STOCK_MANAGEMENT'))
+		{
+			$this->warnings[md5('PS_ADVANCED_STOCK_MANAGEMENT')] = $this->l('You need to activate advanced stock management prior to use this feature.');
+			return false;
+		}
+		
 		// Manage the add stock form
 		if ($this->display == 'addstock' || $this->display == 'removestock' || $this->display == 'transferstock')
 		{
@@ -984,11 +990,11 @@ class AdminStockManagementControllerCore extends AdminController
 
 						$query->select('IFNULL(CONCAT(pl.`name`, \' : \', GROUP_CONCAT(agl.`name`, \' - \', al.`name` SEPARATOR \', \')),pl.`name`) as name');
 						$query->from('product_attribute', 'a');
-						$query->join('INNER JOIN '._DB_PREFIX_.'product_lang pl ON (pl.`id_product` = a.`id_product` AND pl.`id_lang` = '.$lang_id.')
+						$query->join('INNER JOIN '._DB_PREFIX_.'product_lang pl ON (pl.`id_product` = a.`id_product` AND pl.`id_lang` = '.(int)$lang_id.')
 							LEFT JOIN '._DB_PREFIX_.'product_attribute_combination pac ON (pac.`id_product_attribute` = a.`id_product_attribute`)
 							LEFT JOIN '._DB_PREFIX_.'attribute atr ON (atr.`id_attribute` = pac.`id_attribute`)
-							LEFT JOIN '._DB_PREFIX_.'attribute_lang al ON (al.`id_attribute` = atr.`id_attribute` AND al.`id_lang` = '.$lang_id.')
-							LEFT JOIN '._DB_PREFIX_.'attribute_group_lang agl ON (agl.`id_attribute_group` = atr.`id_attribute_group` AND agl.`id_lang` = '.$lang_id.')'
+							LEFT JOIN '._DB_PREFIX_.'attribute_lang al ON (al.`id_attribute` = atr.`id_attribute` AND al.`id_lang` = '.(int)$lang_id.')
+							LEFT JOIN '._DB_PREFIX_.'attribute_group_lang agl ON (agl.`id_attribute_group` = atr.`id_attribute_group` AND agl.`id_lang` = '.(int)$lang_id.')'
 						);
 						$query->where('a.`id_product_attribute` = '.$id_product_attribute);
 						$name = Db::getInstance()->getValue($query);
@@ -1138,4 +1144,14 @@ class AdminStockManagementControllerCore extends AdminController
 
         return $this->context->smarty->fetch('helpers/list/list_action_transferstock.tpl');
     }
+	
+	public function initProcess()
+	{
+		if (!Configuration::get('PS_ADVANCED_STOCK_MANAGEMENT'))
+		{
+			$this->warnings[md5('PS_ADVANCED_STOCK_MANAGEMENT')] = $this->l('You need to activate advanced stock management prior to use this feature.');
+			return false;
+		}
+		parent::initProcess();	
+	}    
 }

@@ -48,7 +48,7 @@ class OrderPaymentCore extends ObjectModel
 		'fields' => array(
 			'order_reference' => 	array('type' => self::TYPE_STRING, 'validate' => 'isAnything', 'size' => 9),
 			'id_currency' => 		array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
-			'amount' => 			array('type' => self::TYPE_FLOAT, 'validate' => 'isPrice', 'required' => true),
+			'amount' => 			array('type' => self::TYPE_FLOAT, 'validate' => 'isNegativePrice', 'required' => true),
 			'payment_method' => 	array('type' => self::TYPE_STRING, 'validate' => 'isGenericName'),
 			'conversion_rate' => 	array('type' => self::TYPE_INT, 'validate' => 'isFloat'),
 			'transaction_id' => 	array('type' => self::TYPE_STRING, 'validate' => 'isAnything', 'size' => 254),
@@ -137,7 +137,7 @@ class OrderPaymentCore extends ObjectModel
 		if (!$res)
 			return false;
 		
-		return new OrderInvoice($res['id_order_invoice']);
+		return new OrderInvoice((int)$res);
 	}
 }
 

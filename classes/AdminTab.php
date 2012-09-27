@@ -459,12 +459,12 @@ abstract class AdminTabCore
 		foreach ($rules['required'] as $field)
 			if (($value = Tools::getValue($field)) == false && (string)$value != '0')
 				if (!Tools::getValue($this->identifier) || ($field != 'passwd' && $field != 'no-picture'))
-					$this->_errors[] = $this->l('the field').' <b>'.call_user_func(array($className, 'displayFieldName'), $field, $className).'</b> '.$this->l('is required');
+					$this->_errors[] = sprintf(Tools::displayError('The field %s is required.'), call_user_func(array($className, 'displayFieldName'), $field, $className));
 
 		/* Checking for multilingual required fields */
 		foreach ($rules['requiredLang'] as $fieldLang)
 			if (($empty = Tools::getValue($fieldLang.'_'.$defaultLanguage->id)) === false || $empty !== '0' && empty($empty))
-				$this->_errors[] = $this->l('the field').' <b>'.call_user_func(array($className, 'displayFieldName'), $fieldLang, $className).'</b> '.$this->l('is required at least in').' '.$defaultLanguage->name;
+				$this->_errors[] = sprintf(Tools::displayError('The field %1$s is required at least in %2$s.'), call_user_func(array($className, 'displayFieldName'), $fieldLang, $className), $defaultLanguage->name);
 
 		/* Checking for maximum fields sizes */
 		foreach ($rules['size'] as $field => $maxLength)
@@ -476,7 +476,6 @@ abstract class AdminTabCore
 			foreach ($languages as $language)
 				if (Tools::getValue($fieldLang.'_'.$language['id_lang']) !== false && Tools::strlen(Tools::getValue($fieldLang.'_'.$language['id_lang'])) > $maxLength)
 					$this->_errors[] = sprintf(Tools::displayError('field %1$s is too long. (%2$d chars max, html chars including)'), call_user_func(array($className, 'displayFieldName'), $fieldLang, $className), $maxLength);
-					$this->_errors[] = $this->l('the field').' <b>'.call_user_func(array($className, 'displayFieldName'), $fieldLang, $className).' ('.$language['name'].')</b> '.$this->l('is too long').' ('.$maxLength.' '.$this->l('chars max, html chars including').')';
 
 		/* Overload this method for custom checking */
 		$this->_childValidation();
@@ -485,15 +484,15 @@ abstract class AdminTabCore
 		foreach ($rules['validate'] AS $field => $function)
 			if (($value = Tools::getValue($field)) !== false AND !empty($value) AND ($field != 'passwd'))
 				if (!Validate::$function($value))
-					$this->_errors[] = $this->l('the field').' <b>'.call_user_func(array($className, 'displayFieldName'), $field, $className).'</b> '.$this->l('is invalid');
+					$this->_errors[] = sprintf(Tools::displayError('The field %1$s (%2$s) is invalid.'), call_user_func(array($className, 'displayFieldName'), $field, $className));
 
 		/* Checking for passwd_old validity */
 		if (($value = Tools::getValue('passwd')) != false)
 		{
 			if ($className == 'Employee' && !Validate::isPasswdAdmin($value))
-				$this->_errors[] = $this->l('the field').' <b>'.call_user_func(array($className, 'displayFieldName'), 'passwd', $className).'</b> '.$this->l('is invalid');
+				$this->_errors[] = sprintf(Tools::displayError('The field %1$s (%2$s) is invalid.'), call_user_func(array($className, 'displayFieldName'), 'passwd', $className));
 			elseif ($className == 'Customer' && !Validate::isPasswd($value))
-				$this->_errors[] = $this->l('the field').' <b>'.call_user_func(array($className, 'displayFieldName'), 'passwd', $className).'</b> '.$this->l('is invalid');
+				$this->_errors[] = sprintf(Tools::displayError('The field %1$s (%2$s) is invalid.'), call_user_func(array($className, 'displayFieldName'), 'passwd', $className));
 		}
 
 		/* Checking for multilingual fields validity */
@@ -501,7 +500,7 @@ abstract class AdminTabCore
 			foreach ($languages as $language)
 				if (($value = Tools::getValue($fieldLang.'_'.$language['id_lang'])) !== false && !empty($value))
 					if (!Validate::$function($value))
-						$this->_errors[] = $this->l('the field').' <b>'.call_user_func(array($className, 'displayFieldName'), $fieldLang, $className).' ('.$language['name'].')</b> '.$this->l('is invalid');
+						$this->_errors[] = sprintf(Tools::displayError('The field %1$s (%2$s) is invalid.'), call_user_func(array($className, 'displayFieldName'), $fieldLang, $className), $language['name']);
 	}
 
 	/**
@@ -1304,10 +1303,10 @@ abstract class AdminTabCore
 			$whereShop = Shop::addSqlRestriction($this->shopShareDatas, 'a', $this->shopLinkType);
 		}
 
-		$assos = Shop::getAssoTables();
-		if (isset($assos[$this->table]) && $assos[$this->table]['type'] == 'shop')
+		$asso = Shop::getAssoTable($this->table);
+		if ($asso !== false && $assos['type'] == 'shop')
 		{
-			$filterKey = $assos[$this->table]['type'];
+			$filterKey = $asso['type'];
 			$idenfierShop = Shop::getContextListShopID();
 		}
 

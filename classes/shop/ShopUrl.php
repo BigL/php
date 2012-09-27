@@ -20,7 +20,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 15121 $
+*  @version  Release: $Revision: 17230 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -47,8 +47,8 @@ class ShopUrlCore extends ObjectModel
 		'fields' => array(
 			'active' => 		array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
 			'main' => 			array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
-			'domain' => 		array('type' => self::TYPE_STRING, 'required' => true, 'size' => 255),
-			'domain_ssl' => 	array('type' => self::TYPE_STRING, 'size' => 255),
+			'domain' => 		array('type' => self::TYPE_STRING, 'required' => true, 'size' => 255, 'validate' => 'isCleanHtml'),
+			'domain_ssl' => 	array('type' => self::TYPE_STRING, 'size' => 255, 'validate' => 'isCleanHtml'),
 			'id_shop' => 		array('type' => self::TYPE_INT, 'required' => true),
 			'physical_uri' => 	array('type' => self::TYPE_STRING, 'size' => 64),
 			'virtual_uri' => 	array('type' => self::TYPE_STRING, 'size' => 64),

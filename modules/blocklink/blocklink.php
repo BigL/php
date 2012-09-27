@@ -51,7 +51,7 @@ class BlockLink extends Module
 	public function install()
 	{
 		if (!parent::install() ||
-			!$this->registerHook('leftColumn') ||
+			!$this->registerHook('leftColumn') || !$this->registerHook('header') ||
 			!Db::getInstance()->execute('
 			CREATE TABLE '._DB_PREFIX_.'blocklink (
 			`id_blocklink` int(2) NOT NULL AUTO_INCREMENT, 
@@ -62,7 +62,7 @@ class BlockLink extends Module
 			!Db::getInstance()->execute('
 			CREATE TABLE '._DB_PREFIX_.'blocklink_shop (
 			`id_blocklink` int(2) NOT NULL AUTO_INCREMENT, 
-			`id_shop` varchar(255) NOT NULL,
+			`id_shop` int(2) NOT NULL,
 			PRIMARY KEY(`id_blocklink`, `id_shop`))
 			ENGINE='._MYSQL_ENGINE_.' default CHARSET=utf8') ||
 			!Db::getInstance()->execute('
@@ -108,6 +108,11 @@ class BlockLink extends Module
 	{
 		return $this->hookLeftColumn($params);
 	}
+	
+	public function hookHeader($params)
+	{
+		$this->context->controller->addCSS($this->_path.'blocklink.css', 'all');
+	}
 
 	public function getLinks()
 	{
@@ -144,7 +149,7 @@ class BlockLink extends Module
 	{
 		if (!($languages = Language::getLanguages()))
 			 return false;
-		$defaultLanguage = (int)(Configuration::get('PS_LANG_DEFAULT'));
+		$id_lang_default = (int)Configuration::get('PS_LANG_DEFAULT');
 
 		if ($id_link = Tools::getValue('id_link'))
 		{
@@ -160,7 +165,7 @@ class BlockLink extends Module
 						return false;
 		 	 	}
 				else
-					if (!Db::getInstance()->execute('INSERT INTO '._DB_PREFIX_.'blocklink_lang VALUES ('.(int)$id_link.', '.$language['id_lang'].', \''.pSQL($_POST['text_'.$defaultLanguage]).'\')'))
+					if (!Db::getInstance()->execute('INSERT INTO '._DB_PREFIX_.'blocklink_lang VALUES ('.(int)$id_link.', '.$language['id_lang'].', \''.pSQL($_POST['text_'.$id_lang_default]).'\')'))
 						return false;
 		}
 		else
@@ -178,7 +183,7 @@ class BlockLink extends Module
 						return false;
 				}
 				else
-					if (!Db::getInstance()->execute('INSERT INTO '._DB_PREFIX_.'blocklink_lang VALUES ('.(int)$id_link.', '.(int)($language['id_lang']).', \''.pSQL($_POST['text_'.$defaultLanguage]).'\')'))
+					if (!Db::getInstance()->execute('INSERT INTO '._DB_PREFIX_.'blocklink_lang VALUES ('.(int)$id_link.', '.(int)($language['id_lang']).', \''.pSQL($_POST['text_'.$id_lang_default]).'\')'))
 						return false;
 		}
 
@@ -196,12 +201,11 @@ class BlockLink extends Module
 			$assos_shop = Tools::getValue('checkBoxShopAsso_blocklink');
 			if (empty($assos_shop))
 				return false;
-			foreach ($assos_shop as $asso)
-				foreach ($asso as $id_shop => $row)
-					Db::getInstance()->insert('blocklink_shop', array(
-						'id_blocklink' => (int)$id_link,
-						'id_shop' => (int)$id_shop,
-					));
+			foreach ($assos_shop as $id_shop => $row)
+				Db::getInstance()->insert('blocklink_shop', array(
+					'id_blocklink' => (int)$id_link,
+					'id_shop' => (int)$id_shop,
+				));
 		}
 		return true;
 	}
@@ -284,7 +288,7 @@ class BlockLink extends Module
 	private function _displayForm()
 	{
 	 	/* Language */
-		$defaultLanguage = (int)(Configuration::get('PS_LANG_DEFAULT'));
+		$id_lang_default = (int)Configuration::get('PS_LANG_DEFAULT');
 		$languages = Language::getLanguages(false);
 		$divLangName = 'text¤title';
 		/* Title */
@@ -309,20 +313,20 @@ class BlockLink extends Module
 		}
 		$this->_html .= '
 		<script type="text/javascript">
-			id_language = Number('.$defaultLanguage.');
+			id_language = Number('.(int)$id_lang_default.');
 		</script>
 		<fieldset>
 			<legend><img src="'.$this->_path.'add.png" alt="" title="" /> '.$this->l('Add a new link').'</legend>
 			<form method="post" action="index.php?controller=adminmodules&configure='.Tools::safeOutput(Tools::getValue('configure')).'&token='.Tools::safeOutput(Tools::getValue('token')).'&tab_module='.Tools::safeOutput(Tools::getValue('tab_module')).'&module_name='.Tools::safeOutput(Tools::getValue('module_name')).'">
-				<input type="hidden" name="id_link" value="'.Tools::getValue('id_link').'" />
+				<input type="hidden" name="id_link" value="'.(int)Tools::getValue('id_link').'" />
 				<label>'.$this->l('Text:').'</label>
 				<div class="margin-form">';
 			foreach ($languages as $language)
 				$this->_html .= '
-					<div id="text_'.$language['id_lang'].'" style="display: '.($language['id_lang'] == $defaultLanguage ? 'block' : 'none').'; float: left;">
+					<div id="text_'.$language['id_lang'].'" style="display: '.($language['id_lang'] == $id_lang_default ? 'block' : 'none').'; float: left;">
 						<input type="text" name="text_'.$language['id_lang'].'" id="textInput_'.$language['id_lang'].'" value="'.((isset($links) && isset($links['text'][$language['id_lang']])) ? $links['text'][$language['id_lang']] : '').'" /><sup> *</sup>
 					</div>';
-			$this->_html .= $this->displayFlags($languages, $defaultLanguage, $divLangName, 'text', true);
+			$this->_html .= $this->displayFlags($languages, $id_lang_default, $divLangName, 'text', true);
 			$this->_html .= '
 					<div class="clear"></div>
 				</div>
@@ -353,10 +357,10 @@ class BlockLink extends Module
 				<div class="margin-form">';
 		foreach ($languages as $language)
 			$this->_html .= '
-					<div id="title_'.$language['id_lang'].'" style="display: '.($language['id_lang'] == $defaultLanguage ? 'block' : 'none').'; float: left;">
+					<div id="title_'.$language['id_lang'].'" style="display: '.($language['id_lang'] == $id_lang_default ? 'block' : 'none').'; float: left;">
 						<input type="text" name="title_'.$language['id_lang'].'" value="'.Tools::safeOutput(($this->error && isset($_POST['title'])) ? $_POST['title'] : Configuration::get('PS_BLOCKLINK_TITLE', $language['id_lang'])).'" /><sup> *</sup>
 					</div>';
-		$this->_html .= $this->displayFlags($languages, $defaultLanguage, $divLangName, 'title', true);
+		$this->_html .= $this->displayFlags($languages, $id_lang_default, $divLangName, 'title', true);
 		$this->_html .= '
 				<div class="clear"></div>
 				</div>
@@ -391,7 +395,7 @@ class BlockLink extends Module
 	 	{
 			$this->_html .= '
 			<script type="text/javascript">
-				var currentUrl = \''.Tools::safeOutput(AdminController::$currentIndex.'&configure='.$this->name).'\';
+				var currentUrl = \''.Tools::safeOutput($_SERVER['REQUEST_URI']).'\';
 				var token=\''.$token.'\';
 				var links = new Array();';
 			foreach ($links as $link)
@@ -429,8 +433,8 @@ class BlockLink extends Module
 					<td>'.Tools::safeOutput($link['text_'.$this->context->language->id]).'</td>
 					<td>'.Tools::safeOutput($link['url']).'</td>
 					<td>
-						<img src="../img/admin/edit.gif" alt="" title="" onclick="linkEdition('.(int)$link['id'].')" style="cursor: pointer" />
-						<img src="../img/admin/delete.gif" alt="" title="" onclick="linkDeletion('.(int)$link['id'].')" style="cursor: pointer" />
+						<a href="'.Tools::safeOutput($_SERVER['REQUEST_URI']).'&id_link='.(int)$link['id'].'"><img src="../img/admin/edit.gif" alt="" title="" style="cursor: pointer" /></a>
+						<a href="'.Tools::safeOutput($_SERVER['REQUEST_URI']).'&id='.(int)$link['id'].'&delete_link=1"><img src="../img/admin/delete.gif" alt="" title="" style="cursor: pointer" /></a>
 					</td>
 				</tr>';
 		$i = 0;

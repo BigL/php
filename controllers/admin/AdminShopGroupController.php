@@ -68,7 +68,7 @@ class AdminShopGroupControllerCore extends AdminController
 
 		$this->fields_options = array(
 			'general' => array(
-				'title' =>	$this->l('Multishop options'),
+				'title' =>	$this->l('Multistore options'),
 				'fields' =>	array(
 					'PS_SHOP_DEFAULT' => array(
 						'title' => $this->l('Default shop:'),
@@ -110,7 +110,7 @@ class AdminShopGroupControllerCore extends AdminController
 			);
 		}
 
-		$this->addJqueryPlugin('cooki');
+		$this->addJqueryPlugin('cookie-plugin');
 		$this->addJqueryPlugin('jstree');
 		$this->addCSS(_PS_JS_DIR_.'jquery/plugins/jstree/themes/classic/style.css');
 
@@ -129,9 +129,9 @@ class AdminShopGroupControllerCore extends AdminController
 	{
 		$this->fields_form = array(
 			'legend' => array(
-				'title' => $this->l('ShopGroup')
+				'title' => $this->l('Shop Group')
 			),
-			'description' => $this->l('Warning: it is not recommended to enable the "share customers" and "share orders" options, because once they are activated and customers or orders are created, you won\'t be able to disable these options anymore. If you need these options, try to first consider using several categories instead on several shops.'),
+			'description' => $this->l('Warning: it is not recommended to enable the "share customers" and "share orders" options, because once they are activated and customers or orders are created, you will not be able to disable these options. If you need these options, try to first consider using several categories instead on several shops.'),
 			'input' => array(
 				array(
 					'type' => 'text',
@@ -146,7 +146,7 @@ class AdminShopGroupControllerCore extends AdminController
 					'required' => true,
 					'class' => 't',
 					'is_bool' => true,
-					'disabled' => ($this->display == 'edit' && ShopGroup::hasDependency($this->id_object, 'customer')) ? true : false,
+					'disabled' => ($this->id_object && $this->display == 'edit' && ShopGroup::hasDependency($this->id_object, 'customer')) ? true : false,
 					'values' => array(
 						array(
 							'id' => 'share_customer_on',
@@ -159,7 +159,7 @@ class AdminShopGroupControllerCore extends AdminController
 							'label' => $this->l('Disabled')
 						)
 					),
-					'desc' => $this->l('Once the option is enabled, the shops in this group will share their customers: if a customer registers on one of this group\'s shops, the account will automatically be available on the others shops of this goup. Warning: you won\'t be able to disable this option once you have customers registered on at least one shop of this group.'),
+					'desc' => $this->l('Once the option is enabled, the shops in this group will share their customers: if a customer registers on one of this group\'s shops, the account will automatically be available on the others shops of this goup. Warning: you will not be able to disable this option once you have customers registered on at least one shop of this group.'),
 				),
 				array(
 					'type' => 'radio',
@@ -180,7 +180,7 @@ class AdminShopGroupControllerCore extends AdminController
 							'label' => $this->l('Disabled')
 						)
 					),
-					'desc' => $this->l('Share available quantities to sell between shops of this group. When changing this option, all product available quantities for this group will be reset to 0.'),
+					'desc' => $this->l('Share available quantities to sell between shops of this group. When changing this option, all products available quantities for this group will be reset to 0.'),
 				),
 				array(
 					'type' => 'radio',
@@ -189,7 +189,7 @@ class AdminShopGroupControllerCore extends AdminController
 					'required' => true,
 					'class' => 't',
 					'is_bool' => true,
-					'disabled' => ($this->display == 'edit' && ShopGroup::hasDependency($this->id_object, 'order')) ? true : false,
+					'disabled' => ($this->id_object && $this->display == 'edit' && ShopGroup::hasDependency($this->id_object, 'order')) ? true : false,
 					'values' => array(
 						array(
 							'id' => 'share_order_on',
@@ -202,9 +202,9 @@ class AdminShopGroupControllerCore extends AdminController
 							'label' => $this->l('Disabled')
 						)
 					),
-					'desc' => $this->l('Once this option is enabled (which is only possible if customers and available quantities are shared among shops), the customer\'s cart will be shared among all the shops in this group. This way, any purchase started on one of the shops in this group will be able to be finished in another shop from the same shop group. Warning: you won\'t be able to disable this option once you have orders on at least one shop of this group.')
+					'desc' => $this->l('Once this option is enabled (which is only possible if customers and available quantities are shared among shops), the customer\'s cart will be shared among all the shops in this group. This way, any purchase started on one of the shops in this group will be able to be finished in another shop from the same shop group. Warning: you will not be able to disable this option once you have orders on at least one shop of this group.')
 				),
-				/*array(
+				array(
 					'type' => 'radio',
 					'label' => $this->l('Status:'),
 					'name' => 'active',
@@ -224,7 +224,7 @@ class AdminShopGroupControllerCore extends AdminController
 						)
 					),
 					'desc' => $this->l('Enable or disable group shop')
-				)*/
+				)
 			),
 			'submit' => array(
 				'title' => $this->l('Save'),

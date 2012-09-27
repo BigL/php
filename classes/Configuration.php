@@ -93,9 +93,9 @@ class ConfigurationCore extends ObjectModel
 	 */
 	public static function getIdByName($key, $id_shop_group = null, $id_shop = null)
 	{
-		if (is_null($id_shop))
+		if ($id_shop === null)
 			$id_shop = Shop::getContextShopID();
-		if (is_null($id_shop_group))
+		if ($id_shop_group === null)
 			$id_shop_group = Shop::getContextShopGroupID();
 
 		$sql = 'SELECT id_configuration
@@ -146,19 +146,23 @@ class ConfigurationCore extends ObjectModel
 	  */
 	public static function get($key, $id_lang = null, $id_shop_group = null, $id_shop = null)
 	{
+		// If conf if not initialized, try manual query
+		if (!self::$_CONF)
+		{
+			Configuration::loadConfiguration();
+			if (!self::$_CONF)
+				return Db::getInstance()->getValue('SELECT `value` FROM `'._DB_PREFIX_.'configuration` WHERE `name` = "'.pSQL($key).'"');
+		}
+			
 		$id_lang = (int)$id_lang;
-		if (is_null($id_shop))
+		if ($id_shop === null)
 			$id_shop = Shop::getContextShopID();
-		if (is_null($id_shop_group))
+		if ($id_shop_group === null)
 			$id_shop_group = Shop::getContextShopGroupID();
 
 		if (!isset(self::$_CONF[$id_lang]))
 			$id_lang = 0;
-
-		// If conf if not initialized, try manual query
-		if (!self::$_CONF)
-			return Db::getInstance()->getValue('SELECT `value` FROM '._DB_PREFIX_.'configuration WHERE `name` = \''.pSQL($key).'\'');
-
+			
 		if ($id_shop && Configuration::hasKey($key, $id_lang, null, $id_shop))
 			return self::$_CONF[$id_lang]['shop'][$id_shop][$key];
 		else if ($id_shop_group && Configuration::hasKey($key, $id_lang, $id_shop_group))
@@ -203,9 +207,9 @@ class ConfigurationCore extends ObjectModel
 	 		throw new PrestaShopException('keys var is not an array');
 
 		$id_lang = (int)$id_lang;
-		if (is_null($id_shop))
+		if ($id_shop === null)
 			$id_shop = Shop::getContextShopID();
-		if (is_null($id_shop_group))
+		if ($id_shop_group === null)
 			$id_shop_group = Shop::getContextShopGroupID();
 
 	 	$results = array();
@@ -246,9 +250,9 @@ class ConfigurationCore extends ObjectModel
 		if (!Validate::isConfigName($key))
 			die(Tools::displayError());
 
-		if (is_null($id_shop))
+		if ($id_shop === null)
 			$id_shop = Shop::getContextShopID();
-		if (is_null($id_shop_group))
+		if ($id_shop_group === null)
 			$id_shop_group = Shop::getContextShopGroupID();
 
 		if (!is_array($values))
@@ -293,9 +297,9 @@ class ConfigurationCore extends ObjectModel
 		if (!Validate::isConfigName($key))
 			die(Tools::displayError());
 
-		if (is_null($id_shop))
+		if ($id_shop === null)
 			$id_shop = Shop::getContextShopID();
-		if (is_null($id_shop_group))
+		if ($id_shop_group === null)
 			$id_shop_group = Shop::getContextShopGroupID();
 
 		if (!is_array($values))
@@ -379,17 +383,20 @@ class ConfigurationCore extends ObjectModel
 	 	if (!Validate::isConfigName($key))
 			return false;
 
-		$sql = 'DELETE FROM `'._DB_PREFIX_.'configuration_lang`
-				WHERE `id_configuration` IN (
-					SELECT `id_configuration`
-					FROM `'._DB_PREFIX_.'configuration`
-					WHERE `name` = \''.pSQL($key).'\'
-				)';
-		$result = Db::getInstance()->execute($sql);
+		$result = Db::getInstance()->execute('
+		DELETE FROM `'._DB_PREFIX_.'configuration_lang`
+		WHERE `id_configuration` IN (
+			SELECT `id_configuration`
+			FROM `'._DB_PREFIX_.'configuration`
+			WHERE `name` = "'.pSQL($key).'"
+		)');
 
-		$sql = 'DELETE FROM `'._DB_PREFIX_.'configuration`
-				WHERE `name` = \''.pSQL($key).'\'';
-		$result2 = Db::getInstance()->execute($sql);
+		$result2 = Db::getInstance()->execute('
+		DELETE FROM `'._DB_PREFIX_.'configuration`
+		WHERE `name` = "'.pSQL($key).'"');
+		
+		self::$_CONF = null;
+		
 		return ($result && $result2);
 	}
 
@@ -401,29 +408,22 @@ class ConfigurationCore extends ObjectModel
 	public static function deleteFromContext($key)
 	{
 		if (Shop::getContext() == Shop::CONTEXT_ALL)
-			$id_shop = $id_shop_group = null;
-		else if (Shop::getContext() == Shop::CONTEXT_GROUP)
-		{
-			$id_shop_group = Shop::getContextShopGroupID();
-			$id_shop = null;
-		}
-		else
-		{
-			$id_shop_group = Shop::getContextShopGroupID();
-			$id_shop = Shop::getContextShopID();
-		}
-
-		if (!$id_shop && !$id_shop_group)
 			return;
+		
+		$id_shop = null;
+		$id_shop_group = Shop::getContextShopGroupID();
+		if (Shop::getContext() == Shop::CONTEXT_SHOP)
+			$id_shop = Shop::getContextShopID();
 
 		$id = Configuration::getIdByName($key, $id_shop_group, $id_shop);
-		$sql = 'DELETE FROM '._DB_PREFIX_.'configuration
-				WHERE id_configuration = '.$id;
-		Db::getInstance()->execute($sql);
-
-		$sql = 'DELETE FROM '._DB_PREFIX_.'configuration_lang
-				WHERE id_configuration = '.$id;
-		Db::getInstance()->execute($sql);
+		Db::getInstance()->execute('
+		DELETE FROM '._DB_PREFIX_.'configuration
+		WHERE id_configuration = '.(int)$id);
+		Db::getInstance()->execute('
+		DELETE FROM '._DB_PREFIX_.'configuration_lang
+		WHERE id_configuration = '.(int)$id);
+		
+		self::$_CONF = null;
 	}
 
 	/**

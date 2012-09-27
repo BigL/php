@@ -1,3 +1,4 @@
+var has_been_moved = false;
 var modules_list = new Array();
 var hooks_list = new Array();
 var hookable_list = new Array();
@@ -33,28 +34,38 @@ $(document).ready(function() {
 	});
 	// populate  
 	getHookableList();
-	$('.unregisterHook').unbind('click').click(function() {
+	$('.unregisterHook').unbind('click').click(function()
+	{
 		id = $(this).attr('id');
 		$(this).parent().parent().parent().fadeOut('slow', function() {
 			$(this).remove();
 		});
 		return false;
 	});
-	$('#cancelMove').unbind('click').click(function() {
+	$('#cancelMove').unbind('click').click(function()
+	{
 		$('#' + cancelMove + '').sortable('cancel');
 		return false;
 	});
-	$('#saveLiveEdit').unbind('click').click(function() {
+	$('#saveLiveEdit').unbind('click').click(function()
+	{
 		saveModulePosition();
 		return false;
 	});
-	$('#closeLiveEdit').unbind('click').click(function() {
-		$("#live_edit_feedback_str").html('<div style="padding:10px;"><p style="margin-bottom:10px;">' + confirmClose + '</p><p style="height:1.6em;display:block"><a style="margin:auto;float:left" class="button" href="#" onclick="closeLiveEdit();">' + confirm + '</a><a style="margin:auto;float:right;" class="button" href="#" onclick="closeFancybox();">' + cancel + '</a></p></div>');
-		$("#fancy").attr('href', '#live_edit_feedback');
-		$("#fancy").trigger("click");
-        return false;
+	$('#closeLiveEdit').unbind('click').click(function() 
+	{
+		if (!has_been_moved)
+			closeLiveEdit();
+		else
+		{
+			$("#live_edit_feedback_str").html('<div style="padding:10px;"><p style="margin-bottom:10px;">' + confirmClose + '</p><p style="height:1.6em;display:block"><a style="margin:auto;float:left" class="button" href="#" onclick="closeLiveEdit();">' + confirm + '</a><a style="margin:auto;float:right;" class="button" href="#" onclick="closeFancybox();">' + cancel + '</a></p></div>');
+			$("#fancy").attr('href', '#live_edit_feedback');
+			$("#fancy").trigger("click");
+		}
+		return false;
 	});
-	$('.add_module_live_edit').unbind('click').click(function() {
+	$('.add_module_live_edit').unbind('click').click(function()
+	{
 		$("#live_edit_feedback_str").html('<div style="padding:10px"><img src="img/loadingAnimation.gif"></div>');
 		$("#fancy").attr('href', '#live_edit_feedback');
 		$("#fancy").trigger("click");
@@ -75,6 +86,7 @@ $(document).ready(function() {
 				if (new_target_id == '') {
 					new_target_id = event.target.id;
 				}
+				has_been_moved = true;
 			},
 			start: function(event, ui) {
 				new_target_id = ui.item[0].parentNode.id;
@@ -131,23 +143,26 @@ function getHookableList() {
 	}); 
 
     $.ajax({
-        type: 'POST',
-        url: baseDir + ad + '/ajax.php',
-        async: true,
-        dataType: 'json',
-        data: {ajax:"true",
-        'getHookableList':1,
-        'hooks_list' : hooks_list,
-        modules_list : modules_list,
-        id_shop : get('id_shop')
-        },
-        success: function(jsonData) {
+			type: 'POST',
+			url: baseDir + ad + '/index.php',
+			async: true,
+			dataType: 'json',
+			data: {
+				action: 'getHookableList',
+				tab: 'AdminModulesPositions',
+				ajax:1,
+				hooks_list: hooks_list,
+				modules_list: modules_list,
+				id_shop: get('id_shop'),
+				token: get('liveToken')
+			},
+			success: function(jsonData) {
 			if (jsonData.hasError) {
 	        	var errors = '';
 				for (error in jsonData.errors) //IE6 bug fix
 				if (error != 'indexOf')
 					errors += jsonData.errors[error] + "\n";
-					alert(errors);
+				alert(errors);
         }
         else
         	hookable_list = jsonData;// create and fill input array
@@ -162,10 +177,17 @@ function getHookableList() {
 function getHookableModuleList(hook) {
     $.ajax({
         type: 'GET',
-        url: baseDir + ad + '/ajax.php',
+        url: baseDir + ad + '/index.php',
         async: true,
         dataType: 'json',
-        data: 'ajax=true&getHookableModuleList&hook=' + hook + '&id_shop=' + get('id_shop'),
+        data: {
+        	ajax:1,
+			tab: 'AdminModulesPositions',
+        	action:'getHookableModuleList',
+        	hook: hook,
+			id_shop: get('id_shop'),
+			token: get('liveToken')
+        },
         success: function(jsonData) {
             var select = '<select id="select_module">';
             for (var i = 0; i < jsonData.length; i++) {
@@ -179,7 +201,8 @@ function getHookableModuleList(hook) {
         }
     });
 }
-function saveModulePosition() {
+function saveModulePosition()
+{
     $("input.dynamic-input-save-position").remove();
     $("#live_edit_feedback_str").html('<div style="padding:10px"><img src="img/loadingAnimation.gif"></div>');
     $("#fancy").attr('href', '#live_edit_feedback');
@@ -200,13 +223,14 @@ function saveModulePosition() {
 
     $.ajax({
         type: 'POST',
-        url: baseDir + ad + "/ajax.php", 
+        url: baseDir + ad + "/index.php", 
         async: true,
         dataType: 'json',
         data: datas,
         success: function(jsonData) {
         $('#live_edit_feedback_str').html('<div class="live_edit_feed_back_ok"><img src="img/admin/ok2.png"><h3>' + saveOK + '</h3><a style="margin:auto" class="exclusive" href="#" onclick="closeFancybox();">' + close + '</a></div>');
             timer = setTimeout("hideFeedback()", 3000);
+            has_been_moved = false;
         },
         error: function(XMLHttpRequest, textStatus, errorThrown) {
             $('#live_edit_feedback_str').html('<div class="live_edit_feed_back_ko"><img src="img/admin/error.png"><h3>TECHNICAL ERROR:</h3>' + unableToSaveModulePosition + '<br><br><a style="margin:auto" class="button" href="#" onclick="closeFancybox();">' + close + '</a></div>');
@@ -216,22 +240,26 @@ function saveModulePosition() {
 
 	return true;
 }
-function closeFancybox() {
+function closeFancybox()
+{
 	clearTimeout(timer);
 	$.fancybox.close();
 	$('#live_edit_feedback_str').html('');
 }
-function closeLiveEdit(){
+function closeLiveEdit()
+{
 	window.location.href = window.location.protocol+'//'+window.location.host+window.location.pathname;
 }
-function hideFeedback() {
+function hideFeedback()
+{
 	$('#live_edit_feed_back').fadeOut('slow', function() {
 		$.fancybox.close();
 		$('#live_edit_feedback_str').html('');
 	});
 };
 
-function get(name) {
+function get(name)
+{
 	var regexS = "[\\?&]" + name + "=([^&#]*)";
 	var regex = new RegExp(regexS);
 	var results = regex.exec(window.location.href);

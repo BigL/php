@@ -103,8 +103,6 @@ class ManufacturerCore extends ObjectModel
 	{
 		parent::__construct($id, $id_lang);
 
-		/* Get the manufacturer's id_address */
-		$this->id_address = $this->getManufacturerAddress();
 		$this->link_rewrite = $this->getLink();
 		$this->image_dir = _PS_MANU_IMG_DIR_;
 	}
@@ -117,7 +115,10 @@ class ManufacturerCore extends ObjectModel
 			return false;
 
 		if (parent::delete())
+		{
+			CartRule::cleanProductRuleIntegrity('manufacturers', $this->id);
 			return $this->deleteImage();
+		}
 	}
 
 	/**
@@ -146,16 +147,7 @@ class ManufacturerCore extends ObjectModel
 		if (!(int)$this->id)
 			return false;
 
-		$result = Db::GetInstance(_PS_USE_SQL_SLAVE_)->getRow('
-			SELECT `id_address`
-			FROM '._DB_PREFIX_.'address
-			WHERE `id_manufacturer` = '.(int)$this->id
-		);
-
-		if (!$result)
-			return false;
-
-		return $result['id_address'];
+		return Db::getInstance(_PS_USE_SQL_SLAVE_)->getValue('SELECT `id_address` FROM '._DB_PREFIX_.'address WHERE `id_manufacturer` = '.(int)$this->id);
 	}
 
 	/**
@@ -323,7 +315,11 @@ class ManufacturerCore extends ObjectModel
 		$alias = '';
 		if ($order_by == 'price')
 			$alias = 'product_shop.';
-		elseif ($order_by == 'id_product')
+		elseif ($order_by == 'name')
+			$alias = 'pl.';
+		elseif ($order_by == 'quantity')
+			$alias = 'stock.';
+		else
 			$alias = 'p.';
 		$sql = 'SELECT p.*, product_shop.*, stock.out_of_stock, IFNULL(stock.quantity, 0) as quantity, pa.`id_product_attribute`,
 					pl.`description`, pl.`description_short`, pl.`link_rewrite`, pl.`meta_description`, pl.`meta_keywords`,

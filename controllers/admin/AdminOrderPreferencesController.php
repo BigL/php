@@ -20,7 +20,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 15310 $
+*  @version  Release: $Revision: 16369 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -75,7 +75,7 @@ class AdminOrderPreferencesControllerCore extends AdminController
 					),
 					'PS_GUEST_CHECKOUT_ENABLED' => array(
 						'title' => $this->l('Enable guest checkout'),
-						'desc' => $this->l('Guest can place an order without registering'),
+						'desc' => $this->l('Guests can place an order without registering'),
 						'validation' => 'isBool',
 						'cast' => 'intval',
 						'type' => 'bool'

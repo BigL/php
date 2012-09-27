@@ -180,14 +180,12 @@ class HookCore extends ObjectModel
 		$cache_id = 'hook_module_list';
 		if (!Cache::isStored($cache_id))
 		{
-			$sql = 'SELECT h.id_hook, h.name as h_name, title, description, h.position, live_edit, hm.position as hm_position, m.id_module, m.name, active
-					FROM `'._DB_PREFIX_.'hook` h
-					INNER JOIN `'._DB_PREFIX_.'hook_module` hm ON (h.id_hook = hm.id_hook)
-					INNER JOIN `'._DB_PREFIX_.'module` as m    ON (m.id_module = hm.id_module)
-					WHERE hm.id_shop IN('.implode(', ', Shop::getContextListShopID()).')
-					GROUP BY hm.id_hook, hm.id_module
-					ORDER BY hm.position';
-			$results = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS($sql);
+			$results = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS('
+			SELECT h.id_hook, h.name as h_name, title, description, h.position, live_edit, hm.position as hm_position, m.id_module, m.name, active
+			FROM `'._DB_PREFIX_.'hook` h
+			INNER JOIN `'._DB_PREFIX_.'hook_module` hm ON (h.id_hook = hm.id_hook AND hm.id_shop = '.(int)Context::getContext()->shop->id.')
+			INNER JOIN `'._DB_PREFIX_.'module` as m ON (m.id_module = hm.id_module)
+			ORDER BY hm.position');
 			$list = array();
 			foreach ($results as $result)
 			{
@@ -244,29 +242,49 @@ class HookCore extends ObjectModel
 	{
 		$context = Context::getContext();
 		$cache_id = 'hook_module_exec_list'.((isset($context->customer)) ? '_'.$context->customer->id : '');
-		if (!Cache::isStored($cache_id))
+		if (!Cache::isStored($cache_id) || $hook_name == 'displayPayment')
 		{
-			// Get shops and groups list
-			$shop_list = Shop::getContextListShopID();
-			if (isset($context->customer) && $context->customer->isLogged())
-				$groups = $context->customer->getGroups();
-
+			$frontend = true;
+			$groups = array();
+			if (isset($context->employee))
+			{
+				$shop_list = array((int)$context->shop->id);
+				$frontend = false;
+			}
+			else
+			{
+				// Get shops and groups list
+				$shop_list = Shop::getContextListShopID();
+				if (isset($context->customer) && $context->customer->isLogged())
+					$groups = $context->customer->getGroups();
+				elseif (isset($context->customer) && $context->customer->isLogged(true))
+					$groups = array((int)Configuration::get('PS_GUEST_GROUP'));
+				else
+					$groups = array((int)Configuration::get('PS_UNIDENTIFIED_GROUP'));
+			}
+			
 			// SQL Request
 			$sql = new DbQuery();
 			$sql->select('h.`name` as hook, m.`id_module`, h.`id_hook`, m.`name` as module, h.`live_edit`');
 			$sql->from('module', 'm');
 			$sql->innerJoin('hook_module', 'hm', 'hm.`id_module` = m.`id_module`');
 			$sql->innerJoin('hook', 'h', 'hm.`id_hook` = h.`id_hook`');
-			$sql->where('(SELECT COUNT(*) FROM '._DB_PREFIX_.'module_shop ms WHERE ms.id_module = m.id_module AND ms.id_shop IN('.implode(', ', $shop_list).')) = '.count($shop_list));
-			$sql->where('hm.id_shop IN('.implode(', ', $shop_list).')');
+			$sql->where('(SELECT COUNT(*) FROM '._DB_PREFIX_.'module_shop ms WHERE ms.id_module = m.id_module AND ms.id_shop IN ('.implode(', ', $shop_list).')) = '.count($shop_list));
+			if ($hook_name != 'displayPayment')
+				$sql->where('h.name != "displayPayment"');
+			// For payment modules, we check that they are available in the contextual country
+			elseif ($frontend && Validate::isLoadedObject($context->country))
+				$sql->where('(h.name = "displayPayment" AND (SELECT id_country FROM '._DB_PREFIX_.'module_country mc WHERE mc.id_module = m.id_module AND id_country = '.(int)$context->country->id.' LIMIT 1) = '.(int)$context->country->id.')');
+			if (Validate::isLoadedObject($context->shop))
+				$sql->where('hm.id_shop = '.(int)$context->shop->id);
 
-			if (isset($context->customer) && $context->customer->isLogged())
+			if ($frontend)
 			{
 				$sql->leftJoin('module_group', 'mg', 'mg.`id_module` = m.`id_module`');
-				$sql->where('mg.`id_group` IN('.implode(', ', $groups).')');
+				$sql->where('mg.`id_group` IN ('.implode(', ', $groups).')');
+				$sql->groupBy('hm.id_hook, hm.id_module');
 			}
 
-			$sql->groupBy('hm.id_hook, hm.id_module');
 			$sql->orderBy('hm.`position`');
 
 			// Store results per hook name
@@ -297,11 +315,12 @@ class HookCore extends ObjectModel
 						'live_edit' => $row['live_edit'],
 					);
 				}
-
-			Cache::store($cache_id, $list);
-
-			// @todo remove this in 1.6, we keep it in 1.5 for retrocompatibility
-			self::$_hook_modules_cache_exec = $list;
+			if ($hook_name != 'displayPayment')
+			{
+				Cache::store($cache_id, $list);
+				// @todo remove this in 1.6, we keep it in 1.5 for retrocompatibility
+				self::$_hook_modules_cache_exec = $list;
+			}
 		}
 		else
 			$list = Cache::retrieve($cache_id);
@@ -376,7 +395,7 @@ class HookCore extends ObjectModel
 			$exceptions = $moduleInstance->getExceptions($array['id_hook']);
 			if (in_array(Dispatcher::getInstance()->getController(), $exceptions))
 				continue;
-			if (isset($context->employee) && !$moduleInstance->getPermission('view', $context->employee))
+			if (Validate::isLoadedObject($context->employee) && !$moduleInstance->getPermission('view', $context->employee))
 				continue;
 
 			// Check which / if method is callable
@@ -392,7 +411,7 @@ class HookCore extends ObjectModel
 				else if ($hook_retro_callable)
 					$display = $moduleInstance->{'hook'.$retro_hook_name}($hook_args);
 				// Live edit
-				if ($array['live_edit'] && ((Tools::isSubmit('live_edit') && Tools::getValue('ad') && (Tools::getValue('liveToken') == sha1(Tools::getValue('ad')._COOKIE_KEY_)))))
+				if ($array['live_edit'] && Tools::isSubmit('live_edit') && Tools::getValue('ad') && Tools::getValue('liveToken') == Tools::getAdminToken('AdminModulesPositions'.(int)Tab::getIdFromClassName('AdminModulesPositions').(int)Tools::getValue('id_employee')))
 				{
 					$live_edit = true;
 					$output .= self::wrapLiveEdit($display, $moduleInstance, $array['id_hook']);

@@ -37,7 +37,7 @@ class AdminSuppliersControllerCore extends AdminController
 		$this->addRowAction('delete');
 		$this->bulk_actions = array('delete' => array('text' => $this->l('Delete selected'), 'confirm' => $this->l('Delete selected items?')));
 
-		$this->_select = 'COUNT(ps.`id_product`) AS products';
+		$this->_select = 'COUNT(DISTINCT ps.`id_product`) AS products';
 		$this->_join = 'LEFT JOIN `'._DB_PREFIX_.'product_supplier` ps ON (a.`id_supplier` = ps.`id_supplier`)';
 		$this->_group = 'GROUP BY a.`id_supplier`';
 
@@ -120,7 +120,7 @@ class AdminSuppliersControllerCore extends AdminController
 				),
 				array(
 					'type' => 'text',
-					'label' => $this->l('Postcode / Zip Code:'),
+					'label' => $this->l('Postal Code/Zip Code:'),
 					'name' => 'postcode',
 					'size' => 10,
 					'maxlength' => 12,
@@ -215,11 +215,13 @@ class AdminSuppliersControllerCore extends AdminController
 
 		// loads current address for this supplier - if possible
 		$address = null;
+		if (isset($obj->id))
+		{
+			$id_address = Address::getAddressIdBySupplierId($obj->id);
 
-		$id_address = Address::getAddressIdBySupplierId($obj->id);
-
-		if ($id_address > 0)
-			$address = new Address((int)$id_address);
+			if ($id_address > 0)
+				$address = new Address((int)$id_address);
+		}
 
 		// force specific fields values (address)
 		if ($address != null)
@@ -397,7 +399,7 @@ class AdminSuppliersControllerCore extends AdminController
 			if (!($obj = $this->loadObject(true)))
 				return;
 			else if (SupplyOrder::supplierHasPendingOrders($obj->id))
-				$this->errors[] = $this->l('It is not possible to delete a supplier if there are any pending supply order.');
+				$this->errors[] = $this->l('It is not possible to delete a supplier if there are any pending supplier orders.');
 			else
 			{
 				//delete all product_supplier linked to this supplier

@@ -20,7 +20,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 15310 $
+*  @version  Release: $Revision: 16369 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -77,7 +77,7 @@ class AdminCustomerPreferencesControllerCore extends AdminController
 					),
 					'PS_B2B_ENABLE' => array(
 						'title' => $this->l('Enable B2B mode'),
-						'desc' => $this->l('Activate or deactivate B2B mode. When this option is enabled some B2B features are available.'),
+						'desc' => $this->l('Activate or deactivate B2B mode. When this option is enabled, some B2B features are available.'),
 						'validation' => 'isBool',
 						'cast' => 'intval',
 						'type' => 'bool'

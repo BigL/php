@@ -81,7 +81,7 @@ h1 {
 	margin: 0 0 .67em 0;
 }
 h2 {
-	font-size: 1.4em;;
+	font-size: 1.4em;
 }
 h3 {
 	font-size: 1.1em;
@@ -198,6 +198,12 @@ background: -moz-linear-gradient(center top , #F9F9F9, #ECECEC) repeat-x scroll 
 	padding: 0 0 1em 260px;
 	color: #7F7F7F;
 	font-size: 0.85em;
+}
+.margin-form .normal-text {
+	display: block;
+	padding-top: 0.2em;
+	font-size: 1.2em;
+	color: black;
 }
 
 fieldset.width1 .margin-form {
@@ -345,6 +351,7 @@ select optgroup option {
 
 #content {
 	padding: 1.25em;
+	padding-bottom: 0.5em;
 }
 
 #news {
@@ -1151,6 +1158,8 @@ html[xmlns] .clearfix {
 	margin-top: 5px;
 }
 
+#footer {padding-top:5px}
+
 #footer_iframe_home{
 	position:absolute;
 	top:0;
@@ -1362,6 +1371,7 @@ html[xmlns] .clearfix {
 	font-size:16px;
 	text-align: right;
 	padding-right: 10px;
+	white-space: nowrap;
 }
 
 #table_info_large{
@@ -1759,9 +1769,9 @@ a.action_module_delete {
 .select_theme{
 	text-align: center;
 	width: 220px;
-	height: 235px;
 	float: left;
-	margin-bottom: 20px;
+	margin: 10px;
+	padding: 10px;
 	cursor: pointer;
 	border: 1px solid #FFFFF0;
 	color: #000000;
@@ -2104,7 +2114,7 @@ width:100%;
 	float:left;
 }
 #ChangeStatus{
-	position:absolute;
+	float:right;
 	margin:20px 20px 0 0;
 	right:10px;
 }

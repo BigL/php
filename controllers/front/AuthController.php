@@ -372,6 +372,7 @@ class AuthControllerCore extends FrontController
 	 */
 	protected function processSubmitAccount()
 	{
+		Hook::exec('actionBeforeSubmitAccount');
 		$this->create_account = true;
 		if (Tools::isSubmit('submitAccount'))
 			$this->context->smarty->assign('email_create', 1);
@@ -393,6 +394,10 @@ class AuthControllerCore extends FrontController
 		if (!Tools::getValue('phone') && !Tools::getValue('phone_mobile') && Configuration::get('PS_REGISTRATION_PROCESS_TYPE'))
 			$this->errors[] = Tools::displayError('You must register at least one phone number');
 		$this->errors = array_unique(array_merge($this->errors, $customer->validateController()));
+
+		// Check the requires fields which are settings in the BO
+		$this->errors = array_merge($this->errors, $customer->validateFieldsRequiredDatabase());
+
 		if (!Configuration::get('PS_REGISTRATION_PROCESS_TYPE') && !$this->ajax && !Tools::isSubmit('submitGuestAccount'))
 		{
 			if (!count($this->errors))
@@ -483,14 +488,14 @@ class AuthControllerCore extends FrontController
 				{
 					if (!$country->checkZipCode($postcode))
 						$this->errors[] = sprintf(
-							Tools::displayError('Zip / Postal code is invalid. Must be typed as follows: %s'),
+							Tools::displayError('Zip/Postal code is invalid. Must be typed as follows: %s'),
 							str_replace('C', $country->iso_code, str_replace('N', '0', str_replace('L', 'A', $country->zip_code_format)))
 						);
 				}
 				elseif ($country->zip_code_format)
-					$this->errors[] = Tools::displayError('Zip / Postal code is required.');
+					$this->errors[] = Tools::displayError('Zip/Postal code is required.');
 				elseif ($postcode && !preg_match('/^[0-9a-zA-Z -]{4,9}$/ui', $postcode))
-					$this->errors[] = Tools::displayError('Zip / Postal code is invalid.');
+					$this->errors[] = Tools::displayError('Zip/Postal code is invalid.');
 			}
 
 			if ($country->need_identification_number && (!Tools::getValue('dni') || !Validate::isDniLite(Tools::getValue('dni'))))
@@ -558,6 +563,10 @@ class AuthControllerCore extends FrontController
 
 							// If a logged guest logs in as a customer, the cart secure key was already set and needs to be updated
 							$this->context->cart->update();
+
+							// Avoid articles without delivery address on the cart
+							$this->context->cart->autosetProductAddress();
+
 							Hook::exec('actionCustomerAccountAdd', array(
 									'_POST' => $_POST,
 									'newCustomer' => $customer

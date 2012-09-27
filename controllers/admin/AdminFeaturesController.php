@@ -400,10 +400,12 @@ class AdminFeaturesControllerCore extends AdminController
 	 */
 	public function processAdd()
 	{
-		parent::processAdd();
+		$object = parent::processAdd();
 
 		if (Tools::isSubmit('submitAdd'.$this->table.'AndStay') && !count($this->errors))
 			$this->redirect_after = self::$currentIndex.'&'.$this->identifier.'=&conf=3&update'.$this->table.'&token='.$this->token;
+			
+		return $object;
 	}
 
 	/**
@@ -412,10 +414,12 @@ class AdminFeaturesControllerCore extends AdminController
 	 */
 	public function processUpdate()
 	{
-		parent::processUpdate();
+		$object = parent::processUpdate();
 
 		if (Tools::isSubmit('submitAdd'.$this->table.'AndStay') && !count($this->errors))
 			$this->redirect_after = self::$currentIndex.'&'.$this->identifier.'=&conf=3&update'.$this->table.'&token='.$this->token;
+		
+		return $object;
 	}
 
 	/**
@@ -442,7 +446,7 @@ class AdminFeaturesControllerCore extends AdminController
 				if (preg_match('/^name_/Ui', $key))
 					$_POST[$key] = str_replace ('\n', '', str_replace('\r', '', $value));
 		}
-		parent::processSave();
+		return parent::processSave();
 	}
 
 	/**
@@ -451,6 +455,9 @@ class AdminFeaturesControllerCore extends AdminController
 	 */
 	public function getList($id_lang, $order_by = null, $order_way = null, $start = 0, $limit = null, $id_lang_shop = false)
 	{
+		if ($this->table == 'feature_value')
+			$this->_where .= ' AND a.custom = 0';
+		
 		parent::getList($id_lang, $order_by, $order_way, $start, $limit, $id_lang_shop);
 
 		if ($this->table == 'feature')
@@ -473,30 +480,33 @@ class AdminFeaturesControllerCore extends AdminController
 
 	public function ajaxProcessUpdatePositions()
 	{
-		$way = (int)Tools::getValue('way');
-		$id_feature = (int)Tools::getValue('id');
-		$positions = Tools::getValue('feature');
-
-		$new_positions = array();
-		foreach ($positions as $k => $v)
-			if (!empty($v))
-				$new_positions[] = $v;
-
-		foreach ($new_positions as $position => $value)
+		if ($this->tabAccess['edit'] === '1')
 		{
-			$pos = explode('_', $value);
+			$way = (int)Tools::getValue('way');
+			$id_feature = (int)Tools::getValue('id');
+			$positions = Tools::getValue('feature');
 
-			if (isset($pos[2]) && (int)$pos[2] === $id_feature)
+			$new_positions = array();
+			foreach ($positions as $k => $v)
+				if (!empty($v))
+					$new_positions[] = $v;
+
+			foreach ($new_positions as $position => $value)
 			{
-				if ($feature = new Feature((int)$pos[2]))
-					if (isset($position) && $feature->updatePosition($way, $position, $id_feature))
-						echo 'ok position '.(int)$position.' for feature '.(int)$pos[1].'\r\n';
-					else
-						echo '{"hasError" : true, "errors" : "Can not update feature '.(int)$id_feature.' to position '.(int)$position.' "}';
-				else
-					echo '{"hasError" : true, "errors" : "This feature ('.(int)$id_feature.') can t be loaded"}';
+				$pos = explode('_', $value);
 
-				break;
+				if (isset($pos[2]) && (int)$pos[2] === $id_feature)
+				{
+					if ($feature = new Feature((int)$pos[2]))
+						if (isset($position) && $feature->updatePosition($way, $position, $id_feature))
+							echo 'ok position '.(int)$position.' for feature '.(int)$pos[1].'\r\n';
+						else
+							echo '{"hasError" : true, "errors" : "Can not update feature '.(int)$id_feature.' to position '.(int)$position.' "}';
+					else
+						echo '{"hasError" : true, "errors" : "This feature ('.(int)$id_feature.') can t be loaded"}';
+
+					break;
+				}
 			}
 		}
 	}

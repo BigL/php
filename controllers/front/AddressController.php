@@ -126,50 +126,51 @@ class AddressControllerCore extends FrontController
 		// Check phone
 		if (!Tools::getValue('phone') && !Tools::getValue('phone_mobile'))
 			$this->errors[] = Tools::displayError('You must register at least one phone number');
-
-		// Check country
-		if (!($country = new Country($address->id_country)) || !Validate::isLoadedObject($country))
-			throw new PrestaShopException('Country cannot be loaded with address->id_country');
-
-		if ((int)$country->contains_states && !(int)$address->id_state)
-			$this->errors[] = Tools::displayError('This country requires a state selection.');
-
-		// US customer: normalize the address
-		if ($address->id_country == Country::getByIso('US'))
+		if ($address->id_country)
 		{
-			include_once(_PS_TAASC_PATH_.'AddressStandardizationSolution.php');
-			$normalize = new AddressStandardizationSolution;
-			$address->address1 = $normalize->AddressLineStandardization($address->address1);
-			$address->address2 = $normalize->AddressLineStandardization($address->address2);
-		}
+			// Check country
+			if (!($country = new Country($address->id_country)) || !Validate::isLoadedObject($country))
+				throw new PrestaShopException('Country cannot be loaded with address->id_country');
 
-		// Check country zip code
-		$zip_code_format = $country->zip_code_format;
-		if ($country->need_zip_code)
-		{
-			if (($postcode = Tools::getValue('postcode')) && $zip_code_format)
+			if ((int)$country->contains_states && !(int)$address->id_state)
+				$this->errors[] = Tools::displayError('This country requires a state selection.');
+
+			// US customer: normalize the address
+			if ($address->id_country == Country::getByIso('US'))
 			{
-				if (!$country->checkZipCode($postcode))
+				include_once(_PS_TAASC_PATH_.'AddressStandardizationSolution.php');
+				$normalize = new AddressStandardizationSolution;
+				$address->address1 = $normalize->AddressLineStandardization($address->address1);
+				$address->address2 = $normalize->AddressLineStandardization($address->address2);
+			}
+
+			// Check country zip code
+			$zip_code_format = $country->zip_code_format;
+			if ($country->need_zip_code)
+			{
+				if (($postcode = Tools::getValue('postcode')) && $zip_code_format)
+				{
+					if (!$country->checkZipCode($postcode))
+						$this->errors[] = sprintf(
+							Tools::displayError('Zip/Postal code is invalid. Must be typed as follows: %s'),
+							str_replace('C', $country->iso_code, str_replace('N', '0', str_replace('L', 'A', $country->zip_code_format)))
+						);
+				}
+				else if ($zip_code_format)
+					$this->errors[] = Tools::displayError('Zip/Postal code is required.');
+				else if ($postcode && !preg_match('/^[0-9a-zA-Z -]{4,9}$/ui', $postcode))
 					$this->errors[] = sprintf(
-						Tools::displayError('Zip / Postal code is invalid. Must be typed as follows: %s'),
+						Tools::displayError('Zip/Postal code is invalid. Must be typed as follows: %s'),
 						str_replace('C', $country->iso_code, str_replace('N', '0', str_replace('L', 'A', $country->zip_code_format)))
 					);
 			}
-			else if ($zip_code_format)
-				$this->errors[] = Tools::displayError('Zip / Postal code is required.');
-			else if ($postcode && !preg_match('/^[0-9a-zA-Z -]{4,9}$/ui', $postcode))
-				$this->errors[] = sprintf(
-					Tools::displayError('Zip / Postal code is invalid. Must be typed as follows: %s'),
-					str_replace('C', $country->iso_code, str_replace('N', '0', str_replace('L', 'A', $country->zip_code_format)))
-				);
+
+			// Check country DNI
+			if ($country->isNeedDni() && (!Tools::getValue('dni') || !Validate::isDniLite(Tools::getValue('dni'))))
+				$this->errors[] = Tools::displayError('Identification number is incorrect or has already been used.');
+			else if (!$country->isNeedDni())
+				$address->dni = null;
 		}
-
-		// Check country DNI
-		if ($country->isNeedDni() && (!Tools::getValue('dni') || !Validate::isDniLite(Tools::getValue('dni'))))
-			$this->errors[] = Tools::displayError('Identification number is incorrect or has already been used.');
-		else if (!$country->isNeedDni())
-			$address->dni = null;
-
 		// Check if the alias exists
 		if (!empty($_POST['alias'])
 			&& (int)$this->context->customer->id > 0
@@ -181,6 +182,9 @@ class AddressControllerCore extends FrontController
 				AND id_customer = '.(int)$this->context->customer->id.'
 				AND deleted = 0') > 0)
 			$this->errors[] = sprintf(Tools::displayError('The alias "%s" is already used, please chose another one.'), Tools::safeOutput($_POST['alias']));
+
+		// Check the requires fields which are settings in the BO
+		$this->errors = array_merge($this->errors, $address->validateFieldsRequiredDatabase());
 
 		// Don't continue this process if we have errors !
 		if ($this->errors && !$this->ajax)
@@ -210,6 +214,8 @@ class AddressControllerCore extends FrontController
 			// Update id address of the current cart if necessary
 			if (isset($address_old) && $address_old->isUsed())
 				$this->context->cart->updateAddressId($address_old->id, $address->id);
+			else // Update cart address
+				$this->context->cart->autosetProductAddress();
 
 			if ($this->ajax)
 			{

@@ -107,15 +107,13 @@ class AdminRequestSqlControllerCore extends AdminController
 
 		$this->displayWarning($this->l('When saving the query, only the request type "SELECT" are allowed.'));
 		$this->displayInformation('
-			<strong>'.$this->l('How to create a new sql query?').'</strong>
-			<br />
-			<ul>
-				<li>'.$this->l('Click "Add new".').'<br /></li>
-				<li>'.$this->l('Fill in the fields and click "Save".').'</li>
-				<li>'.$this->l('You can then view the query results by clicking on the tab:').' <img src="../img/admin/details.gif"></li>
-				<li>'.$this->l('You can then export the query results as CSV file by clicking on the tab:').' <img src="../img/admin/export.gif"></li>
-			</ul>
-		');
+		<strong>'.$this->l('How to create a new sql query?').'</strong><br />
+		<ul>
+			<li>'.$this->l('Click "Add new".').'</li>
+			<li>'.$this->l('Fill in the fields and click "Save".').'</li>
+			<li>'.$this->l('You can then view the query results by clicking on the tab:').' <img src="../img/admin/details.gif" /></li>
+			<li>'.$this->l('You can then export the query results as CSV file by clicking on the tab:').' <img src="../img/admin/export.gif" /></li>
+		</ul>');
 
 		$this->addRowAction('export');
 		$this->addRowAction('view');
@@ -452,7 +450,7 @@ class AdminRequestSqlControllerCore extends AdminController
 								$e[$key]['attribut'][1]
 							);
 						else
-							$this->errors[] = Tools::displayError('When multiple tables are used, each attribute must be referenced to a table.');
+							$this->errors[] = Tools::displayError('When multiple tables are used, each attribute must refer to a table.');
 				break;
 
 				case 'testedRequired':
@@ -460,7 +458,7 @@ class AdminRequestSqlControllerCore extends AdminController
 					break;
 
 				case 'testedUnauthorized':
-						$this->errors[] = sprintf(Tools::displayError('is a unauthorized keyword.'), $e[$key]);
+						$this->errors[] = sprintf(Tools::displayError('is an unauthorized keyword.'), $e[$key]);
 				break;
 			}
 		}

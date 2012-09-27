@@ -20,7 +20,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 15914 $
+*  @version  Release: $Revision: 17309 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -28,11 +28,6 @@
 class AdminHomeControllerCore extends AdminController
 {
 	const TIPS_TIMEOUT = 5;
-
-	public function __construct()
-	{
-		parent::__construct();
-	}
 
 	protected function _displayOptimizationTips()
 	{
@@ -132,7 +127,7 @@ class AdminHomeControllerCore extends AdminController
 
 			$opti_list[] = array(
 				'title' => $this->l('Shop enabled'),
-				'href' => $link->getAdminLink('AdminPreferences'),
+				'href' => $link->getAdminLink('AdminMaintenance'),
 				'color' => $lights[$shopEnabled]['color'],
 				'image' => $lights[$shopEnabled]['image'],
 			);
@@ -174,60 +169,71 @@ class AdminHomeControllerCore extends AdminController
 		$shop = Context::getContext()->shop;
 		if ($_SERVER['HTTP_HOST'] != $shop->domain && $_SERVER['HTTP_HOST'] != $shop->domain_ssl)
 			$this->displayWarning($this->l('You are currently connected with the following domain name:').' <span style="color: #CC0000;">'.$_SERVER['HTTP_HOST'].'</span><br />'.
-			$this->l('This is different from the main shop domain name set in shop tab:').' <span style="color: #CC0000;">'.$shop->domain.'</span><br />
-			<a href="index.php?controller=AdminShopUrl&token='.Tools::getAdminTokenLite('AdminShopUrl').'">'.
+			$this->l('This is different from the main shop domain name set in "Multistore" page under the "Advanced Parameters" menu:').' <span style="color: #CC0000;">'.$shop->domain.'</span><br />
+			<a href="index.php?controller=AdminMeta&token='.Tools::getAdminTokenLite('AdminMeta').'#conf_id_domain">'.
 			$this->l('Click here if you want to modify the main shop domain name').'</a>');
 	}
 
 	protected function getQuickLinks()
 	{
-		$quick_links['first'] = array(
-			'href' => $this->context->link->getAdminLink('AdminStats').'&amp;module=statsbestproducts',
-			'title' => $this->l('Products sold recently'),
-			'description' => $this->l('Create a new category and organize your catalog.'),
-		);
-
-		$quick_links['second'] = array(
-			'href' => $this->context->link->getAdminLink('AdminOrders').'&amp;addorder',
-			'title' => $this->l('New order'),
-			'description' => $this->l('Fill your catalog with new products.'),
-		);
-
-		$quick_links['third'] = array(
-			'href' => $this->context->link->getAdminLink('AdminSpecificPriceRule').'&amp;addspecific_price_rule',
-			'title' => $this->l('New Price Rule for catalog'),
-			'description' => $this->l('Monitor your activity with a thorough analysis of your shop.'),
-		);
-
-		$quick_links['fourth'] = array(
-			'href' => $this->context->link->getAdminLink('AdminProducts').'&amp;addproduct',
-			'title' => $this->l('New Product'),
-			'description' => $this->l('Add a new employee account and discharge a part of your duties as shop owner.'),
-		);
+		$quick_links = array();
 		
-		$quick_links['fifth'] = array(
-			'href' => $this->context->link->getAdminLink('AdminModules').'&amp;addcategory',
-			'title' => $this->l('New module'),
-			'description' => $this->l('Create a new category and organize your catalog.'),
-		);
+		$profile_access = Profile::getProfileAccesses($this->context->employee->id_profile);
+		if ($profile_access[(int)Tab::getIdFromClassName('AdminStats')]['view'])
+			$quick_links['first'] = array(
+				'href' => $this->context->link->getAdminLink('AdminStats').'&amp;module=statsbestproducts',
+				'title' => $this->l('Products sold recently'),
+				'description' => $this->l('Create a new category and organize your catalog.'),
+			);
+		
+		if ($profile_access[(int)Tab::getIdFromClassName('AdminOrders')]['add'])
+			$quick_links['second'] = array(
+				'href' => $this->context->link->getAdminLink('AdminOrders').'&amp;addorder',
+				'title' => $this->l('New order'),
+				'description' => $this->l('Fill your catalog with new products.'),
+			);
+		
+		if ($profile_access[(int)Tab::getIdFromClassName('AdminSpecificPriceRule')]['add'])
+			$quick_links['third'] = array(
+				'href' => $this->context->link->getAdminLink('AdminSpecificPriceRule').'&amp;addspecific_price_rule',
+				'title' => $this->l('New Price Rule for catalog'),
+				'description' => $this->l('Monitor your activity with a thorough analysis of your shop.'),
+			);
+		
+		if ($profile_access[(int)Tab::getIdFromClassName('AdminProducts')]['add'])
+			$quick_links['fourth'] = array(
+				'href' => $this->context->link->getAdminLink('AdminProducts').'&amp;addproduct',
+				'title' => $this->l('New Product'),
+				'description' => $this->l('Add a new employee account and discharge a part of your duties as shop owner.'),
+			);
 
-		$quick_links['sixth'] = array(
-			'href' => $this->context->link->getAdminLink('AdminCartRules').'&amp;addcart_rule',
-			'title' => $this->l('New Price Rule for cart'),
-			'description' => $this->l('Fill your catalog with new products.'),
-		);
+		if ($profile_access[(int)Tab::getIdFromClassName('AdminModules')]['view'])
+			$quick_links['fifth'] = array(
+				'href' => $this->context->link->getAdminLink('AdminModules'),
+				'title' => $this->l('New module'),
+				'description' => $this->l('Configure your modules.'),
+			);
+			
+		if ($profile_access[(int)Tab::getIdFromClassName('AdminCartRules')]['add'])
+			$quick_links['sixth'] = array(
+				'href' => $this->context->link->getAdminLink('AdminCartRules').'&amp;addcart_rule',
+				'title' => $this->l('New Price Rule for cart'),
+				'description' => $this->l('Add new cart rule.'),
+			);
+			
+		if ($profile_access[(int)Tab::getIdFromClassName('AdminCmsContent')]['add'])
+			$quick_links['seventh'] = array(
+				'href' => $this->context->link->getAdminLink('AdminCmsContent').'&amp;addcms',
+				'title' => $this->l('New Page CMS'),
+				'description' => $this->l('Add a new CMS page.'),
+			);
 
-		$quick_links['seventh'] = array(
-			'href' => $this->context->link->getAdminLink('AdminCmsContent').'&amp;addcms',
-			'title' => $this->l('New Page CMS'),
-			'description' => $this->l('Monitor your activity with a thorough analysis of your shop.'),
-		);
-
-		$quick_links['eighth'] = array(
-			'href' => $this->context->link->getAdminLink('AdminCarts').'&amp;id_cart',
-			'title' => $this->l('Abandoned Carts'),
-			'description' => $this->l('Add a new employee account and discharge a part of your duties as shop owner.'),
-		);
+		if ($profile_access[(int)Tab::getIdFromClassName('AdminCarts')]['view'])
+			$quick_links['eighth'] = array(
+				'href' => $this->context->link->getAdminLink('AdminCarts').'&amp;id_cart',
+				'title' => $this->l('Abandoned Carts'),
+				'description' => $this->l('View your customer carts.'),
+			);
 		return $quick_links;
 	}
 
@@ -242,8 +248,8 @@ class AdminHomeControllerCore extends AdminController
 				<h5><a href="index.php?tab=AdminCustomerThreads&token='.Tools::getAdminTokenLite('AdminCustomerThreads').'">'.$this->l('View more').'</a> '.$this->l('Customer service').'</h5>
 				<table class="table_info_details" style="width:100%;">
 					<colgroup>
-						<col width=""></col>
-						<col width="80px"></col>
+						<col width="">
+						<col width="80px">
 					</colgroup>
 					<tr class="tr_odd">
 						<td class="td_align_left">
@@ -318,8 +324,8 @@ class AdminHomeControllerCore extends AdminController
 			<h5><a href="index.php?tab=AdminStats&token='.Tools::getAdminTokenLite('AdminStats').'">'.$this->l('View more').'</a> '.$this->l('This month\'s activity').' </h5>
 			<table class="table_info_details" style="width:100%;">
 					<colgroup>
-						<col width=""></col>
-						<col width="80px"></col>
+						<col width="">
+						<col width="80px">
 					</colgroup>
 				<tr class="tr_odd">
 					<td class="td_align_left">
@@ -367,15 +373,16 @@ class AdminHomeControllerCore extends AdminController
 				<div id="stat_google">';
 
 		$chart = new Chart();
+		$chart->getCurve(1)->setType('bars');
 		$result = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS('
-			SELECT total_paid / conversion_rate as total_converted, invoice_date
+			SELECT total_paid / conversion_rate as total_converted, left(invoice_date, 10) as invoice_date
 			FROM '._DB_PREFIX_.'orders o
 			WHERE valid = 1
 				AND invoice_date BETWEEN \''.date('Y-m-d', strtotime('-7 DAYS', time())).' 00:00:00\' AND \''.date('Y-m-d H:i:s').'\'
 				'.Shop::addSqlRestriction(Shop::SHARE_ORDER).'
 		');
 		foreach ($result as $row)
-			$chart->getCurve(1)->setPoint(strtotime($row['invoice_date']), $row['total_converted']);
+			$chart->getCurve(1)->setPoint(strtotime($row['invoice_date'].' 02:00:00'), $row['total_converted']);
 		$chart->setSize(580, 170);
 		$chart->setTimeMode(strtotime('-7 DAYS', time()), time(), 'd');
 		$currency = Tools::setCurrency($this->context->cookie);
@@ -521,16 +528,15 @@ class AdminHomeControllerCore extends AdminController
 		if (is_writable('../config/xml/') && (!file_exists('../config/xml/preactivation.xml') || (time() - filemtime('../config/xml/preactivation.xml')) > 86400))
 		{
 			$stream_context = @stream_context_create(array('http' => array('method'=> 'GET', 'timeout' => AdminHomeController::TIPS_TIMEOUT)));
-			$content = @file_get_contents('http://api.prestashop.com/partner/premium/get_partners.php?protocol='.$protocol.'&iso_country='.Tools::strtoupper($isoCountry).'&iso_lang='.Tools::strtolower($isoUser).'&ps_version='._PS_VERSION_.'&ps_creation='._PS_CREATION_DATE_.'&host='.urlencode($_SERVER['HTTP_HOST']).'&email='.urlencode(Configuration::get('PS_SHOP_EMAIL')), false, $stream_context);
+			$content = Tools::file_get_contents('http://api.prestashop.com/partner/premium/get_partners.php?protocol='.$protocol.'&iso_country='.Tools::strtoupper($isoCountry).'&iso_lang='.Tools::strtolower($isoUser).'&ps_version='._PS_VERSION_.'&ps_creation='._PS_CREATION_DATE_.'&host='.urlencode($_SERVER['HTTP_HOST']).'&email='.urlencode(Configuration::get('PS_SHOP_EMAIL')), false, $stream_context);
 			@unlink('../config/xml/preactivation.xml');
 			file_put_contents('../config/xml/preactivation.xml', $content);
 		}
 
+		$count = 0;
+		libxml_use_internal_errors(true);
 		// If preactivation xml file exists, we load it
-		if (file_exists('../config/xml/preactivation.xml'))
-		{
-			$count = 0;
-			$preactivation = @simplexml_load_file('../config/xml/preactivation.xml');
+		if (file_exists('../config/xml/preactivation.xml') && filesize('../config/xml/preactivation.xml') > 0 && $preactivation = simplexml_load_file('../config/xml/preactivation.xml'))
 			foreach ($preactivation->partner as $partner)
 			{
 				// Cache the logo
@@ -551,17 +557,26 @@ class AdminHomeControllerCore extends AdminController
 					foreach ($partner->labels->label as $label)
 						if (empty($label_final) || (string)$label->attributes()->iso == $isoUser)
 							$label_final = (string)$label;
+
+					$optional_final = '';
+					if (isset($partner->optionals))
+						foreach ($partner->optionals->optional as $optional)
+							if (empty($optional_final) && (string)$optional->attributes()->iso == $isoUser)
+								$optional_final = (string)$optional;
+
 					$link = 'index.php?controller=adminmodules&install='.htmlentities((string)$partner->module).'&token='.Tools::getAdminTokenLite('AdminModules').'&module_name='.htmlentities((string)$partner->module).'&redirect=config';
-					$return .= '<div style="width:46.5%;height:90px;border:1px solid #cccccc;background-color:white;padding-left:5px;padding-right:5px;'.(empty($return) ? 'float:left' : 'float:right').'">
+					$return .= '<div style="width:46.5%;min-height:85px;border:1px solid #cccccc;background-color:white;padding-left:5px;padding-right:5px;'.(empty($return) ? 'float:left' : 'float:right').'">
 						<p align="center">
 							<a href="'.$link.'" class="preactivationLink" rel="'.htmlentities((string)$partner->module).'"><img src="../img/tmp/preactivation_'.htmlentities((string)$partner->module).'.png" alt="'.htmlentities((string)$partner->name).'" border="0" /></a><br />
 							<b><a href="'.$link.'" class="preactivationLink" rel="'.htmlentities((string)$partner->module).'">'.htmlentities(utf8_decode((string)$label_final)).'</a></b>
+							'.(($optional_final != '') ? '<a href="'.$link.'" class="preactivationLink" rel="'.htmlentities((string)$partner->module).'"><img src="'.htmlentities((string)$optional_final).'" /></a>' : '').'
 						</p>
 					</div>';
 					$count++;
 				}
 			}
-		}
+		libxml_clear_errors();
+
 		if (!empty($return))
 			$return .= '<br clear="left" />
 			<script>
@@ -650,6 +665,9 @@ class AdminHomeControllerCore extends AdminController
 			if (Configuration::get('PS_LAST_VERSION_CHECK') < time() - (3600 * Upgrader::DEFAULT_CHECK_VERSION_DELAY_HOURS))
 				$tpl_vars['refresh_check_version'] = 1;
 		}
+		
+		if (!$this->isFresh(Module::CACHE_FILE_DEFAULT_COUNTRY_MODULES_LIST, 86400))
+			file_put_contents(_PS_ROOT_DIR_.Module::CACHE_FILE_DEFAULT_COUNTRY_MODULES_LIST, $this->addonsRequest('native'));
 
 		$tpl_vars['upgrade'] = $upgrade;
 

@@ -357,6 +357,12 @@ function updateNewAccountToAddressBlock()
 					});
 				}
 				$('#opc_new_account').fadeIn('fast', function() {
+					
+					//After login, the products are automatically associated to an address
+					$.each(json.summary.products, function() {
+						updateAddressId(this.id_product, this.id_product_attribute, '0', this.id_address_delivery);
+					});
+					
 					updateCartSummary(json.summary);
 					updateAddressesDisplay(true);
 					updateCarrierList(json.carrier_data);
@@ -691,7 +697,7 @@ function bindInputs()
 	});
 	
 	// Term Of Service (TOS)
-	$('#cgv').live('click', function() {
+	$('#cgv').click(function() {
 		if ($('#cgv:checked').length != 0)
 			var checked = 1;
 		else
@@ -707,6 +713,7 @@ function bindInputs()
 			data: 'ajax=true&method=updateTOSStatusAndGetPayments&checked=' + checked + '&token=' + static_token,
 			success: function(json)
 			{
+				updateCarrierSelectionAndGift();
 				$('div#HOOK_TOP_PAYMENT').html(json.HOOK_TOP_PAYMENT);
 				$('#opc_payment_methods-content div#HOOK_PAYMENT').html(json.HOOK_PAYMENT);
 				$('#opc_payment_methods-overlay').fadeOut('slow');
@@ -742,6 +749,7 @@ function multishippingMode(it)
 					cache: false,
 					success: function(data) {
 						$('#cart_summary').replaceWith($(data).find('#cart_summary'));
+						$('.cart_quantity_input').typeWatch({ highlight: true, wait: 600, captureLength: 0, callback: function(val) { updateQty(val, true, this.el) } });
 					}
 				});
 				updateCarrierSelectionAndGift();
@@ -756,6 +764,7 @@ function multishippingMode(it)
 			},
 			'onComplete': function()
 			{
+				$('#fancybox-content .cart_quantity_input').typeWatch({ highlight: true, wait: 600, captureLength: 0, callback: function(val) { updateQty(val, false, this.el)} });
 				cleanSelectAddressDelivery();
 				$('#fancybox-content').append($('<div class="multishipping_close_container"><a id="multishipping-close" class="button_large" href="#">' + CloseTxt + '</a></div>'));
 				$('#multishipping-close').click(function() {

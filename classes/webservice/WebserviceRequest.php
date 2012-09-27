@@ -269,7 +269,7 @@ class WebserviceRequestCore
 			'stock_movement_reasons' => array('description' => 'Stock movement reason', 'class' => 'StockMvtReason'),
 			'warehouses' => array('description' => 'Warehouses', 'class' => 'Warehouse', 'forbidden_method' => array('DELETE')),
 			'stocks' => array('description' => 'Stocks', 'class' => 'Stock', 'forbidden_method' => array('PUT', 'POST', 'DELETE')),
-			'available_quantities' => array('description' => 'Available quantities', 'class' => 'StockAvailable', 'forbidden_method' => array('PUT', 'POST', 'DELETE')),
+			'stock_availables' => array('description' => 'Available quantities', 'class' => 'StockAvailable', 'forbidden_method' => array('PUT', 'POST', 'DELETE')),
 			'warehouse_product_locations' => array('description' => 'Location of products in warehouses', 'class' => 'WarehouseProductLocation', 'forbidden_method' => array('PUT', 'POST', 'DELETE')),
 			'supply_orders' => array('description' => 'Supply Orders', 'class' => 'SupplyOrder', 'forbidden_method' => array('PUT', 'POST', 'DELETE')),
 			'supply_order_details' => array('description' => 'Supply Order Details', 'class' => 'SupplyOrderDetail', 'forbidden_method' => array('PUT', 'POST', 'DELETE')),
@@ -392,6 +392,10 @@ class WebserviceRequestCore
 		$this->_startTime = microtime(true);
 		$this->objects = array();
 
+		// Error handler
+		set_error_handler(array($this, 'webserviceErrorHandler'));
+		ini_set('html_errors', 'off');
+
 		// Two global vars, for compatibility with the PS core...
 		global $webservice_call, $display_errors;
 		$webservice_call = true;
@@ -401,9 +405,7 @@ class WebserviceRequestCore
 		// set the output object which manage the content and header structure and informations
 		$this->objOutput = new WebserviceOutputBuilder($this->wsUrl);
 
-		// Error handler
-		set_error_handler(array($this, 'webserviceErrorHandler'));
-		ini_set('html_errors', 'off');
+
 
 		$this->_key = trim($key);
 
@@ -545,7 +547,10 @@ class WebserviceRequestCore
 	public function setError($status, $label, $code)
 	{
 		global $display_errors;
-		$this->objOutput->setStatus($status);
+		if (!isset($display_errors))
+			$display_errors = strtolower(ini_get('display_errors')) != 'off';
+		if (isset($this->objOutput))
+			$this->objOutput->setStatus($status);
 		$this->errors[] = $display_errors ? array($code, $label) : 'Internal error. To see this error please display the PHP errors.';
 	}
 
@@ -603,8 +608,28 @@ class WebserviceRequestCore
 	 */
 	public function webserviceErrorHandler($errno, $errstr, $errfile, $errline)
 	{
-		if (!(error_reporting() & $errno))
+		echo 'Error Handler WebserviceRequest';
+		$display_errors = strtolower(ini_get('display_errors')) != 'off';
+		if (!(error_reporting() & $errno) || $display_errors)
 			return;
+			
+		$errortype = array (
+                E_ERROR              => 'Error',
+                E_WARNING            => 'Warning',
+                E_PARSE              => 'Parse',
+                E_NOTICE             => 'Notice',
+                E_CORE_ERROR         => 'Core Error',
+                E_CORE_WARNING       => 'Core Warning',
+                E_COMPILE_ERROR      => 'Compile Error',
+                E_COMPILE_WARNING    => 'Compile Warning',
+                E_USER_ERROR         => 'Error',
+                E_USER_WARNING       => 'User warning',
+                E_USER_NOTICE        => 'User notice',
+                E_STRICT             => 'Runtime Notice',
+                E_RECOVERABLE_ERROR => 'Recoverable error'
+                );
+		$type = (isset($errortype[$errno]) ? $errortype[$errno] : 'Unknown error');
+		error_log('[PHP '.$type.' #'.$errno.'] '.$errstr.' ('.$errfile.', line '.$errline.')');
 
 		switch($errno)
 		{
@@ -777,8 +802,12 @@ class WebserviceRequestCore
 				return true;
 			}
 		}
-
-		$this->setError(404, 'This shop id doesn\'t exist', 129);
+		else
+		{
+			self::$shopIDs[] = Context::getContext()->shop->id;
+			return true;
+		}
+		$this->setError(404, 'This shop id does not exist', 999);
 		return false;
 	}
 
@@ -1209,17 +1238,23 @@ class WebserviceRequestCore
 			$this->fieldsToDisplay = 'full';
 
 		// Check if Object is accessible for this/those id_shop
-		$assoc = Shop::getAssoTables();
-		if (array_key_exists($this->resourceConfiguration['retrieveData']['table'] ,$assoc))
+		$assoc = Shop::getAssoTable($this->resourceConfiguration['retrieveData']['table']);
+		if ($assoc !== false)
 		{
 			$sql = 'SELECT 1
-					FROM '.bqSQL(_DB_PREFIX_.$this->resourceConfiguration['retrieveData']['table'].'_'.$assoc[$this->resourceConfiguration['retrieveData']['table']]['type']).' ';
+ 						FROM `'.bqSQL(_DB_PREFIX_.$this->resourceConfiguration['retrieveData']['table']);
+			if ($assoc['type'] != 'fk_shop')
+				$sql .= '_'.$assoc['type'];
+			$sql .= '`';
+
 			foreach (self::$shopIDs as $id_shop)
 				$OR[] = ' id_shop = '.(int)$id_shop.' ';
-			$check = ' WHERE ('.implode('OR', $OR).') AND '.bqSQL($this->resourceConfiguration['fields']['id']['sqlId']).' = '.(int)$this->urlSegment[1];
+
+			$check = ' WHERE ('.implode('OR', $OR).') AND `'.bqSQL($this->resourceConfiguration['fields']['id']['sqlId']).'` = '.(int)$this->urlSegment[1];
 			if (!Db::getInstance()->getValue($sql.$check))
 				$this->setError(403, 'Bad id_shop : You are not allowed to access this '.$this->resourceConfiguration['retrieveData']['className'].' ('.(int)$this->urlSegment[1].')', 131);
 		}
+
 		//get entity details
 		$object = new $this->resourceConfiguration['retrieveData']['className']((int)$this->urlSegment[1]);
 		if ($object->id)
@@ -1321,7 +1356,6 @@ class WebserviceRequestCore
 		}
 		else
 		{
-			$assoc = Shop::getAssoTables();
 			foreach ($objects as $object)
 			{
 				if (isset($this->resourceConfiguration['objectMethods']) && isset($this->resourceConfiguration['objectMethods']['delete']))
@@ -1331,12 +1365,6 @@ class WebserviceRequestCore
 
 				if (!$result)
 					$arr_avoid_id[] = $object->id;
-				elseif (array_key_exists($this->resourceConfiguration['retrieveData']['table'] ,$assoc))
-				{
-					$sql = 'DELETE FROM `'._DB_PREFIX_.$this->resourceConfiguration['retrieveData']['table'].'_'.$assoc[$this->resourceConfiguration['retrieveData']['table']]['type'].'`
-							WHERE '.$this->resourceConfiguration['fields']['id']['sqlId'].' = '.$object->id;
-					Db::getInstance()->execute($sql);
-				}
 			}
 			if (!empty($arr_avoid_id))
 			{
@@ -1453,8 +1481,9 @@ class WebserviceRequestCore
 				if (isset($fieldProperties['i18n']) && $fieldProperties['i18n'])
 				{
 					$i18n = true;
-					foreach ($attributes->$fieldName->language as $lang)
-						$object->{$fieldName}[(int)$lang->attributes()->id] = (string)$lang;
+					if (isset($attributes->$fieldName, $attributes->$fieldName->language))
+						foreach ($attributes->$fieldName->language as $lang)
+							$object->{$fieldName}[(int)$lang->attributes()->id] = (string)$lang;
 				}
 			}
 
@@ -1508,11 +1537,11 @@ class WebserviceRequestCore
 									return false;
 								}
 							}
-						$assoc = Shop::getAssoTables();
-						if (array_key_exists($this->resourceConfiguration['retrieveData']['table'] ,$assoc))
+						$assoc = Shop::getAssoTable($this->resourceConfiguration['retrieveData']['table']);
+						if ($assoc !== false)
 						{
 							// PUT nor POST is destructive, no deletion
-							$sql = 'INSERT IGNORE INTO `'.bqSQL(_DB_PREFIX_.$this->resourceConfiguration['retrieveData']['table'].'_'.$assoc[$this->resourceConfiguration['retrieveData']['table']]['type']).'` (id_shop, '.pSQL($this->resourceConfiguration['fields']['id']['sqlId']).') VALUES ';
+							$sql = 'INSERT IGNORE INTO `'.bqSQL(_DB_PREFIX_.$this->resourceConfiguration['retrieveData']['table'].'_'.$assoc['type']).'` (id_shop, '.pSQL($this->resourceConfiguration['fields']['id']['sqlId']).') VALUES ';
 							foreach (self::$shopIDs as $id)
 							{
 								$sql .= '('.(int)$id.','.(int)$object->id.')';

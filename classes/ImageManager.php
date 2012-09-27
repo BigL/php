@@ -20,7 +20,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 15919 $
+*  @version  Release: $Revision: 16789 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -87,7 +87,7 @@ class ImageManagerCore
 	 */
 	public static function checkImageMemoryLimit($image)
 	{
-		$infos = getimagesize($image);
+		$infos = @getimagesize($image);
 
 		$memory_limit = Tools::getMemoryLimit();
 		// memory_limit == -1 => unlimited memory
@@ -114,7 +114,7 @@ class ImageManagerCore
 	 * @param string $file_type
 	 * @return boolean Operation result
 	 */
-	public static function resize($src_file, $dst_file, $dst_width = null, $dst_height = null, $file_type = 'jpg')
+	public static function resize($src_file, $dst_file, $dst_width = null, $dst_height = null, $file_type = 'jpg', $force_type = false)
 	{
 		if (!file_exists($src_file))
 			return false;
@@ -124,7 +124,7 @@ class ImageManagerCore
 		// This allow for higher quality and for transparency. JPG source files will also benefit from a higher quality
 		// because JPG reencoding by GD, even with max quality setting, degrades the image.
 		if (Configuration::get('PS_IMAGE_QUALITY') == 'png_all'
-			|| (Configuration::get('PS_IMAGE_QUALITY') == 'png' && $type == IMAGETYPE_PNG))
+			|| (Configuration::get('PS_IMAGE_QUALITY') == 'png' && $type == IMAGETYPE_PNG) && !$force_type)
 			$file_type = 'png';
 
 		if (!$src_width)
@@ -226,6 +226,30 @@ class ImageManagerCore
 	}
 
 	/**
+	 * Check if image file extension is correct
+	 *
+	 * @static
+	 * @param $filename real filename
+	 * @return bool true if it's correct
+	 */
+	public static function isCorrectImageFileExt($filename)
+	{
+		// Filter on file extension
+		$authorized_extensions = array('gif', 'jpg', 'jpeg', 'jpe', 'png');
+		$name_explode = explode('.', $filename);
+		if (count($name_explode) >= 2)
+		{
+			$current_extension = strtolower($name_explode[count($name_explode) - 1]);
+			if (!in_array($current_extension, $authorized_extensions))
+				return false;
+		}
+		else
+			return false;
+
+		return true;
+	}
+
+	/**
 	 * Validate image upload (check image type and weight)
 	 *
 	 * @param array $file Upload $_FILE value
@@ -240,7 +264,7 @@ class ImageManagerCore
 				$file['size'] / 1000,
 				$max_file_size / 1000
 			);
-		if (!ImageManager::isRealImage($file['tmp_name'], $file['type']))
+		if (!ImageManager::isRealImage($file['tmp_name'], $file['type']) || !ImageManager::isCorrectImageFileExt($file['name']))
 			return Tools::displayError('Image format not recognized, allowed formats are: .gif, .jpg, .png');
 		if ($file['error'])
 			return sprintf(Tools::displayError('Error while uploading image; please change your server\'s settings. (Error code: %s)'), $file['error']);

@@ -20,7 +20,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 13991 $
+*  @version  Release: $Revision: 16173 $
 *  @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -65,7 +65,7 @@ class Blockmyaccountfooter extends Module
 		$smarty->assign(array(
 			'voucherAllowed' => (int)(Configuration::get('PS_VOUCHERS')),
 			'returnAllowed' => (int)(Configuration::get('PS_ORDER_RETURN')),
-			'HOOK_BLOCK_MY_ACCOUNT' => Hook::exec('myAccountBlock')
+			'HOOK_BLOCK_MY_ACCOUNT' => Hook::exec('displayMyAccountBlock')
 		));
 		return $this->display(__FILE__, $this->name.'.tpl');
 	}
@@ -77,12 +77,12 @@ class Blockmyaccountfooter extends Module
 
 	private function addMyAccountBlockHook()
 	{
-		return Db::getInstance()->execute('INSERT IGNORE INTO `'._DB_PREFIX_.'hook` (`name`, `title`, `description`, `position`) VALUES (\'myAccountBlockfooter\', \'My account block\', \'Display extra informations inside the "my account" block\', 1)');
+		return Db::getInstance()->execute('INSERT IGNORE INTO `'._DB_PREFIX_.'hook` (`name`, `title`, `description`, `position`) VALUES (\'displayMyAccountBlockfooter\', \'My account block\', \'Display extra informations inside the "my account" block\', 1)');
 	}
 
 	private function removeMyAccountBlockHook()
 	{
-		return Db::getInstance()->execute('DELETE FROM `'._DB_PREFIX_.'hook` WHERE `name` = \'myAccountBlockfooter\'');
+		return Db::getInstance()->execute('DELETE FROM `'._DB_PREFIX_.'hook` WHERE `name` = \'displayMyAccountBlockfooter\'');
 	}
 
 	public function hookHeader($params)
@@ -97,7 +97,7 @@ class Blockmyaccountfooter extends Module
 		$smarty->assign(array(
 			'voucherAllowed' => (int)(Configuration::get('PS_VOUCHERS')),
 			'returnAllowed' => (int)(Configuration::get('PS_ORDER_RETURN')),
-			'HOOK_BLOCK_MY_ACCOUNT' => Hook::exec('myAccountBlock')
+			'HOOK_BLOCK_MY_ACCOUNT' => Hook::exec('displayMyAccountBlock')
 		));
 		return $this->display(__FILE__, $this->name.'.tpl');
 	}

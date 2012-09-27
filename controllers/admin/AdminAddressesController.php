@@ -20,7 +20,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 15846 $
+*  @version  Release: $Revision: 17107 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -56,7 +56,7 @@ class AdminAddressesControllerCore extends AdminController
 			'firstname' => array('title' => $this->l('First name'), 'width' => 120, 'filter_key' => 'a!firstname'),
 			'lastname' => array('title' => $this->l('Last name'), 'width' => 140, 'filter_key' => 'a!lastname'),
 			'address1' => array('title' => $this->l('Address')),
-			'postcode' => array('title' => $this->l('Postcode / Zip Code'), 'align' => 'right', 'width' => 80),
+			'postcode' => array('title' => $this->l('Postal Code/Zip Code'), 'align' => 'right', 'width' => 80),
 			'city' => array('title' => $this->l('City'), 'width' => 150),
 			'country' => array('title' => $this->l('Country'), 'width' => 100, 'type' => 'select', 'list' => $this->countries_array, 'filter_key' => 'cl!id_country'));
 
@@ -120,6 +120,7 @@ class AdminAddressesControllerCore extends AdminController
 					'name' => 'phone_mobile',
 					'size' => 33,
 					'required' => false,
+					'desc' => sprintf($this->l('You must register at least one phone number %s'), '<sup>*</sup>')
 				),
 				array(
 					'type' => 'textarea',
@@ -251,7 +252,7 @@ class AdminAddressesControllerCore extends AdminController
 			{
 				$temp_fields[] = array(
 					'type' => 'text',
-					'label' => $this->l('Postcode / Zip Code'),
+					'label' => $this->l('Postal Code/Zip Code'),
 					'name' => 'postcode',
 					'size' => 33,
 					'required' => true,
@@ -350,14 +351,14 @@ class AdminAddressesControllerCore extends AdminController
 				$zip_regexp = str_replace('L', '[a-zA-Z]', $zip_regexp);
 				$zip_regexp = str_replace('C', $country->iso_code, $zip_regexp);
 				if (!preg_match($zip_regexp, $postcode))
-					$this->errors[] = Tools::displayError('Your Postcode / Zip code code is incorrect.').'<br />'.
+					$this->errors[] = Tools::displayError('Your Postal Code/Zip Code is incorrect.').'<br />'.
 									   Tools::displayError('Must be typed as follows:').' '.
 									   str_replace('C', $country->iso_code, str_replace('N', '0', str_replace('L', 'A', $zip_code_format)));
 			}
 			else if ($zip_code_format)
-				$this->errors[] = Tools::displayError('Postcode / Zip code required.');
+				$this->errors[] = Tools::displayError('Postal Code/Zip Code required.');
 			else if ($postcode && !preg_match('/^[0-9a-zA-Z -]{4,9}$/ui', $postcode))
-				$this->errors[] = Tools::displayError('Your Postcode / Zip code code is incorrect.');
+				$this->errors[] = Tools::displayError('Your Postal Code/Zip Code is incorrect.');
 		}
 
 		/* If this address come from order's edition and is the same as the other one (invoice or delivery one)
@@ -369,8 +370,12 @@ class AdminAddressesControllerCore extends AdminController
 				$_POST['id_address'] = '';
 		}
 
+		// Check the requires fields which are settings in the BO
+		$address = new Address();
+		$this->errors = array_merge($this->errors, $address->validateFieldsRequiredDatabase());
+
 		if (empty($this->errors))
-			parent::processSave();
+			return parent::processSave();
 		else
 			// if we have errors, we stay on the form instead of going back to the list
 			$this->display = 'edit';

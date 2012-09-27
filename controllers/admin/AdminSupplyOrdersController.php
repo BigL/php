@@ -335,7 +335,7 @@ class AdminSupplyOrdersControllerCore extends AdminController
 				$this->l('Also, changing the currency or the supplier will reset the order.')
 				.'<br />'
 				.'<br />'.
-				$this->l('Finaly, please note that you can only order from one supplier at once.')
+				$this->l('Finaly, please note that you can only order from one supplier at a time.')
 			);
 			return parent::renderForm();
 		}
@@ -508,7 +508,7 @@ class AdminSupplyOrdersControllerCore extends AdminController
 			$this->_where .= ' AND a.id_warehouse = '.$this->getCurrentWarehouse();
 
 		// re-defines toolbar & buttons
-		$this->toolbar_title = $this->l('Stock: Supply orders templates');
+		$this->toolbar_title = $this->l('Stock: Supply order templates');
 		$this->initToolbar();
 		unset($this->toolbar_btn['new']);
 		$this->toolbar_btn['new'] = array(
@@ -593,8 +593,8 @@ class AdminSupplyOrdersControllerCore extends AdminController
 		$helper->languages = $this->_languages;
 		$helper->default_form_language = $this->default_form_language;
 		$helper->allow_employee_form_lang = $this->allow_employee_form_lang;
+		$helper->title = sprintf($this->l('Stock: Change supply order status #%s'), $supply_order->reference);
 
-		//$this->setHelperDisplay($helper);
 		$helper->override_folder = 'supply_orders_change_state/';
 
 		// assigns our content
@@ -845,18 +845,23 @@ class AdminSupplyOrdersControllerCore extends AdminController
 	 */
 	public function initContent()
 	{
+		if (!Configuration::get('PS_ADVANCED_STOCK_MANAGEMENT'))
+		{
+			$this->warnings[md5('PS_ADVANCED_STOCK_MANAGEMENT')] = $this->l('You need to activate advanced stock management prior to use this feature.');
+			return false;
+		}
 		// Manage the add stock form
 		if (Tools::isSubmit('changestate'))
 			$this->initChangeStateContent();
-		else if (Tools::isSubmit('update_receipt') && Tools::isSubmit('id_supply_order'))
+		elseif (Tools::isSubmit('update_receipt') && Tools::isSubmit('id_supply_order'))
 			$this->initUpdateReceiptContent();
-		else if (Tools::isSubmit('viewsupply_order') && Tools::isSubmit('id_supply_order'))
+		elseif (Tools::isSubmit('viewsupply_order') && Tools::isSubmit('id_supply_order'))
 		{
 			$this->action = 'view';
 			$this->display = 'view';
 			parent::initContent();
 		}
-		else if (Tools::isSubmit('updatesupply_order'))
+		elseif (Tools::isSubmit('updatesupply_order'))
 			$this->initUpdateSupplyOrderContent();
 		else
 			parent::initContent();
@@ -2163,5 +2168,15 @@ class AdminSupplyOrdersControllerCore extends AdminController
 			$status = 1;
 
 		return $status;
+	}
+	
+	public function initProcess()
+	{
+		if (!Configuration::get('PS_ADVANCED_STOCK_MANAGEMENT'))
+		{
+			$this->warnings[md5('PS_ADVANCED_STOCK_MANAGEMENT')] = $this->l('You need to activate advanced stock management prior to use this feature.');
+			return false;
+		}
+		parent::initProcess();	
 	}
 }

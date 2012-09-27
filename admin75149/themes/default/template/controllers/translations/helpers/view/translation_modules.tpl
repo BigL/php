@@ -19,7 +19,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 15663 $
+*  @version  Release: $Revision: 17160 $
 *  @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 *}
@@ -28,7 +28,7 @@
 
 {block name="override_tpl"}
 
-	{if $post_limit_exceeded}
+	{if !empty($limit_warning)}
 	<div class="warn">
 		{if $limit_warning['error_type'] == 'suhosin'}
 			{l s='Warning, your hosting provider is using the suhosin patch for PHP, which limits the maximum number of fields to post in a form:'}
@@ -108,10 +108,10 @@
 							{$missing_translations_module = 0}
 						{/if}
 						<fieldset>
-							<legend style="cursor : pointer" onclick="$('#{$theme_name}_{$module_name}_{$template_name}').slideToggle();">{if $theme_name === 'default'}{l s='default'}{else}{$theme_name}{/if} - {$template_name}
+							<legend style="cursor : pointer" onclick="$('#{$theme_name}_{$module_name}_{$template_name|replace:'.':'_'}').slideToggle();">{if $theme_name === 'default'}{l s='default'}{else}{$theme_name}{/if} - {$template_name}
 								<font color="blue">{$newLang|count}</font> {l s='expressions'} (<font color="red">{$missing_translations_module}</font>)
 							</legend>
-							<div name="{$type}_div" id="{$theme_name}_{$module_name}_{$template_name}" style="display:{if $missing_translations_module}block{else}none{/if}">
+							<div name="{$type}_div" id="{$theme_name}_{$module_name}_{$template_name|replace:'.':'_'}" style="display:{if $missing_translations_module}block{else}none{/if}">
 								<table cellpadding="2">
 									{foreach $newLang as $key => $value}
 										<tr>

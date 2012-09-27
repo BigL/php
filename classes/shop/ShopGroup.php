@@ -20,7 +20,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 15760 $
+*  @version  Release: $Revision: 16430 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -93,6 +93,14 @@ class ShopGroupCore extends ObjectModel
 				FROM '._DB_PREFIX_.'shop s
 				WHERE id_shop_group='.(int)$this->id;
 		return (int)Db::getInstance()->getValue($sql);
+	}
+	
+	public static function getShopsFromGroup($id_group)
+	{
+		$sql = 'SELECT s.`id_shop`
+				FROM '._DB_PREFIX_.'shop s
+				WHERE id_shop_group='.(int)$id_group;
+		return Db::getInstance()->executeS($sql);
 	}
 
 	/**

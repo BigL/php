@@ -43,12 +43,13 @@ abstract class HTMLTemplateCore
 	 */
 	public function getHeader()
 	{
-		$shop_name = '';
-		if (Validate::isLoadedObject($this->shop))
-			$shop_name = $this->shop->name;
-
+		$shop_name = Configuration::get('PS_SHOP_NAME');
 		$path_logo = $this->getLogo();
-		list($width, $height) = getimagesize(_PS_BASE_URL_.$path_logo);
+
+		$width = 0;
+		$height = 0;
+		if (!empty($path_logo))
+			list($width, $height) = getimagesize($path_logo);
 
 		$this->smarty->assign(array(
 			'logo_path' => $path_logo,
@@ -106,15 +107,14 @@ abstract class HTMLTemplateCore
 	 */
 	protected function getLogo()
 	{
-        $logo = '';
-        // TCPDF always uses the complete physical path, beware of PrestaShop virtual URI or complete path using symlinks
-        $physical_uri = Context::getContext()->shop->physical_uri.'img/';
+		$logo = '';
+
+		$physical_uri = Context::getContext()->shop->physical_uri.'img/';
 
 		if (Configuration::get('PS_LOGO_INVOICE') != false && file_exists(_PS_IMG_DIR_.Configuration::get('PS_LOGO_INVOICE')))
-			$logo = $physical_uri.Configuration::get('PS_LOGO_INVOICE');
-		else if (Configuration::get('PS_LOGO') != false && file_exists(_PS_IMG_DIR_.Configuration::get('PS_LOGO')))
-			$logo = $physical_uri.Configuration::get('PS_LOGO');
-
+			$logo = _PS_IMG_DIR_.Configuration::get('PS_LOGO_INVOICE');
+		elseif (Configuration::get('PS_LOGO') != false && file_exists(_PS_IMG_DIR_.Configuration::get('PS_LOGO')))
+			$logo = _PS_IMG_DIR_.Configuration::get('PS_LOGO');
 		return $logo;
 	}
 
@@ -152,26 +152,26 @@ abstract class HTMLTemplateCore
 	 */
 	abstract public function getBulkFilename();
 
-    /**
-     * If the template is not present in the theme directory, it will return the default template
-     * in _PS_PDF_DIR_ directory
-     *
-     * @param $template_name
-     * @return string
-     */
-    protected function getTemplate($template_name)
-    {
-        $template = false;
-        $default_template = _PS_PDF_DIR_.'/'.$template_name.'.tpl';
-        $overriden_template = _PS_THEME_DIR_.'/pdf/'.$template_name.'.tpl';
+	/**
+	 * If the template is not present in the theme directory, it will return the default template
+	 * in _PS_PDF_DIR_ directory
+	 *
+	 * @param $template_name
+	 * @return string
+	 */
+	protected function getTemplate($template_name)
+	{
+		$template = false;
+		$default_template = _PS_PDF_DIR_.'/'.$template_name.'.tpl';
+		$overriden_template = _PS_THEME_DIR_.'/pdf/'.$template_name.'.tpl';
 
-        if (file_exists($overriden_template))
-            $template = $overriden_template;
-        else if (file_exists($default_template))
-            $template = $default_template;
+		if (file_exists($overriden_template))
+			$template = $overriden_template;
+		else if (file_exists($default_template))
+			$template = $default_template;
 
-        return $template;
-    }
+		return $template;
+	}
 
 
 	/**

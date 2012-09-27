@@ -384,7 +384,7 @@ class ValidateCore
 		$events .= '|ondragleave|ondragover|ondragstart|ondrop|onerrorupdate|onfilterchange|onfinish|onfocusin|onfocusout|onhashchange|onhelp|oninput|onlosecapture|onmessage|onmouseup|onmovestart';
 		$events .= '|onoffline|ononline|onpaste|onpropertychange|onreadystatechange|onresizeend|onresizestart|onrowenter|onrowexit|onrowsdelete|onrowsinserted|onscroll|onsearch|onselectionchange';
 		$events .= '|onselectstart|onstart|onstop';
-		return (!preg_match('/<[ \t\n]*script/ims', $html) && !preg_match('/<?.*('.$events.')[ \t\n]*=/ims', $html) && !preg_match('/.*script\:/ims', $html) && !preg_match('/<[ \t\n]*i?frame/ims', $html));
+		return (!preg_match('/<[ \t\n]*script/ims', $html) && !preg_match('/('.$events.')[ \t\n]*=/ims', $html) && !preg_match('/.*script\:/ims', $html) && !preg_match('/<[ \t\n]*i?frame/ims', $html));
 	}
 
 	/**
@@ -490,7 +490,7 @@ class ValidateCore
 	 */
 	public static function isBool($bool)
 	{
-		return is_null($bool) || is_bool($bool) || preg_match('/^0|1$/', $bool);
+		return $bool === null || is_bool($bool) || preg_match('/^0|1$/', $bool);
 	}
 
 	/**
@@ -622,7 +622,7 @@ class ValidateCore
 	/**
 	 * Check for an integer validity
 	 *
-	 * @param integer $id Integer to validate
+	 * @param integer $value Integer to validate
 	 * @return boolean Validity is ok or not
 	 */
 	public static function isInt($value)
@@ -633,12 +633,23 @@ class ValidateCore
 	/**
 	 * Check for an integer validity (unsigned)
 	 *
-	 * @param integer $id Integer to validate
+	 * @param integer $value Integer to validate
 	 * @return boolean Validity is ok or not
 	 */
 	public static function isUnsignedInt($value)
 	{
 		return (preg_match('#^[0-9]+$#', (string)$value) && $value < 4294967296 && $value >= 0);
+	}
+	
+	/**
+	 * Check for an percentage validity (between 0 and 100)
+	 *
+	 * @param float $value Float to validate
+	 * @return boolean Validity is ok or not
+	 */
+	public static function isPercentage($value)
+	{
+		return (Validate::isFloat($value) && $value >= 0 && $value <= 100);
 	}
 
 	/**
@@ -655,7 +666,7 @@ class ValidateCore
 
 	public static function isNullOrUnsignedId($id)
 	{
-		return is_null($id) || Validate::isUnsignedId($id);
+		return $id === null || Validate::isUnsignedId($id);
 	}
 
 	/**
@@ -750,7 +761,7 @@ class ValidateCore
 	 */
 	public static function isFileName($name)
 	{
-		return preg_match('/^[a-zA-Z0-9_.-]*$/', $name);
+		return preg_match('/^[a-zA-Z0-9_.-]+$/', $name);
 	}
 
 	/**
@@ -803,7 +814,7 @@ class ValidateCore
 	 */
 	public static function isSortDirection($value)
 	{
-		return (!is_null($value) && ($value === 'ASC' || $value === 'DESC'));
+		return ($value !== null && ($value === 'ASC' || $value === 'DESC'));
 	}
 
 	/**
@@ -909,7 +920,7 @@ class ValidateCore
 	 */
 	public static function isSerializedArray($data)
 	{
-		return is_null($data) || (is_string($data) && preg_match('/^a:[0-9]+:{.*;}$/s', $data));
+		return $data === null || (is_string($data) && preg_match('/^a:[0-9]+:{.*;}$/s', $data));
 	}
 
 	/**
@@ -920,7 +931,7 @@ class ValidateCore
 	 */
 	public static function isCoordinate($data)
 	{
-		return is_null($data) || preg_match('/^\-?[0-9]{1,8}\.[0-9]{1,8}$/s', $data);
+		return $data === null || preg_match('/^\-?[0-9]{1,8}\.[0-9]{1,8}$/s', $data);
 	}
 
 	/**

@@ -38,7 +38,7 @@ countriesNeedZipCode = new Array();
 		{if isset($country.states) && $country.contains_states}
 			countries[{$country.id_country|intval}] = new Array();
 			{foreach from=$country.states item='state' name='states'}
-				countries[{$country.id_country|intval}].push({ldelim}'id' : '{$state.id_state}', 'name' : '{$state.name|escape:'htmlall':'UTF-8'}'{rdelim});
+				countries[{$country.id_country|intval}].push({ldelim}'id' : '{$state.id_state|intval}', 'name' : '{$state.name|addslashes}'{rdelim});
 			{/foreach}
 		{/if}
 		{if $country.need_identification_number}
@@ -50,7 +50,7 @@ countriesNeedZipCode = new Array();
 	{/foreach}
 {/if}
 $(function(){ldelim}
-	$('.id_state option[value={if isset($smarty.post.id_state)}{$smarty.post.id_state}{else}{if isset($address)}{$address->id_state|escape:'htmlall':'UTF-8'}{/if}{/if}]').attr('selected', true);
+	$('.id_state option[value={if isset($smarty.post.id_state)}{$smarty.post.id_state|intval}{else}{if isset($address)}{$address->id_state|intval}{/if}{/if}]').attr('selected', true);
 {rdelim});
 //]]>
 {if $vat_management}
@@ -73,8 +73,6 @@ $(function(){ldelim}
 </script>
 
 <h1>{if !isset($email_create)}{l s='Log in'}{else}{l s='Create your account'}{/if}</h1>
-{assign var='current_step' value='login'}
-{include file="$tpl_dir./order-steps.tpl"}
 
 {include file="$tpl_dir./errors.tpl"}
 {assign var='stateExist' value=false}
@@ -96,7 +94,7 @@ $(function(){ldelim}
 		//send the ajax request to the server
 		$.ajax({
 			type: 'POST',
-			url: baseDir + 'index.php',
+			url: baseUri,
 			async: true,
 			cache: false,
 			dataType : "json",
@@ -161,7 +159,7 @@ $(function(){ldelim}
 				<div class="error" id="create_account_error" style="display:none"></div>
 				<p class="text">
 					<label for="email_create">{l s='E-mail address'}</label>
-					<span><input type="text" id="email_create" name="email_create" value="{if isset($smarty.post.email_create)}{$smarty.post.email_create|escape:'htmlall':'UTF-8'|stripslashes}{/if}" class="account_input" /></span>
+					<span><input type="text" id="email_create" name="email_create" value="{if isset($smarty.post.email_create)}{$smarty.post.email_create|stripslashes}{/if}" class="account_input" /></span>
 				</p>
 				<p class="submit">
 					{if isset($back)}<input type="hidden" class="hidden" name="back" value="{$back|escape:'htmlall':'UTF-8'}" />{/if}
@@ -178,11 +176,11 @@ $(function(){ldelim}
 			<div class="form_content clearfix">
 				<p class="text">
 					<label for="email">{l s='E-mail address'}</label>
-					<span><input type="text" id="email" name="email" value="{if isset($smarty.post.email)}{$smarty.post.email|escape:'htmlall':'UTF-8'|stripslashes}{/if}" class="account_input" /></span>
+					<span><input type="text" id="email" name="email" value="{if isset($smarty.post.email)}{$smarty.post.email|stripslashes}{/if}" class="account_input" /></span>
 				</p>
 				<p class="text">
 					<label for="passwd">{l s='Password'}</label>
-					<span><input type="password" id="passwd" name="passwd" value="{if isset($smarty.post.passwd)}{$smarty.post.passwd|escape:'htmlall':'UTF-8'|stripslashes}{/if}" class="account_input" /></span>
+					<span><input type="password" id="passwd" name="passwd" value="{if isset($smarty.post.passwd)}{$smarty.post.passwd|stripslashes}{/if}" class="account_input" /></span>
 				</p>
 				<p class="lost_password"><a href="{$link->getPageLink('password')}">{l s='Forgot your password?'}</a></p>
 				<p class="submit">
@@ -225,7 +223,7 @@ $(function(){ldelim}
 					<select id="days" name="days">
 						<option value="">-</option>
 						{foreach from=$days item=day}
-							<option value="{$day|escape:'htmlall':'UTF-8'}" {if ($sl_day == $day)} selected="selected"{/if}>{$day|escape:'htmlall':'UTF-8'}&nbsp;&nbsp;</option>
+							<option value="{$day}" {if ($sl_day == $day)} selected="selected"{/if}>{$day}&nbsp;&nbsp;</option>
 						{/foreach}
 					</select>
 				{*
@@ -245,13 +243,13 @@ $(function(){ldelim}
 					<select id="months" name="months">
 						<option value="">-</option>
 						{foreach from=$months key=k item=month}
-							<option value="{$k|escape:'htmlall':'UTF-8'}" {if ($sl_month == $k)} selected="selected"{/if}>{l s=$month}&nbsp;</option>
+							<option value="{$k}" {if ($sl_month == $k)} selected="selected"{/if}>{l s=$month}&nbsp;</option>
 						{/foreach}
 					</select>
 					<select id="years" name="years">
 						<option value="">-</option>
 						{foreach from=$years item=year}
-							<option value="{$year|escape:'htmlall':'UTF-8'}" {if ($sl_year == $year)} selected="selected"{/if}>{$year|escape:'htmlall':'UTF-8'}&nbsp;&nbsp;</option>
+							<option value="{$year}" {if ($sl_year == $year)} selected="selected"{/if}>{$year}&nbsp;&nbsp;</option>
 						{/foreach}
 					</select>
 				</p>
@@ -304,7 +302,7 @@ $(function(){ldelim}
 							<select name="id_country" id="id_country">
 								<option value="">-</option>
 								{foreach from=$countries item=v}
-									<option value="{$v.id_country}" {if ($sl_country == $v.id_country)} selected="selected"{/if}>{$v.name|escape:'htmlall':'UTF-8'}</option>
+									<option value="{$v.id_country}" {if ($sl_country == $v.id_country)} selected="selected"{/if}>{$v.name}</option>
 								{/foreach}
 							</select>
 						</p>
@@ -400,7 +398,7 @@ $(function(){ldelim}
 			<select id="days" name="days">
 				<option value="">-</option>
 				{foreach from=$days item=day}
-					<option value="{$day|escape:'htmlall':'UTF-8'}" {if ($sl_day == $day)} selected="selected"{/if}>{$day|escape:'htmlall':'UTF-8'}&nbsp;&nbsp;</option>
+					<option value="{$day}" {if ($sl_day == $day)} selected="selected"{/if}>{$day}&nbsp;&nbsp;</option>
 				{/foreach}
 			</select>
 			{*
@@ -420,13 +418,13 @@ $(function(){ldelim}
 			<select id="months" name="months">
 				<option value="">-</option>
 				{foreach from=$months key=k item=month}
-					<option value="{$k|escape:'htmlall':'UTF-8'}" {if ($sl_month == $k)} selected="selected"{/if}>{l s=$month}&nbsp;</option>
+					<option value="{$k}" {if ($sl_month == $k)} selected="selected"{/if}>{l s=$month}&nbsp;</option>
 				{/foreach}
 			</select>
 			<select id="years" name="years">
 				<option value="">-</option>
 				{foreach from=$years item=year}
-					<option value="{$year|escape:'htmlall':'UTF-8'}" {if ($sl_year == $year)} selected="selected"{/if}>{$year|escape:'htmlall':'UTF-8'}&nbsp;&nbsp;</option>
+					<option value="{$year}" {if ($sl_year == $year)} selected="selected"{/if}>{$year}&nbsp;&nbsp;</option>
 				{/foreach}
 			</select>
 		</p>
@@ -520,7 +518,7 @@ $(function(){ldelim}
 					<select name="id_country" id="id_country">
 						<option value="">-</option>
 						{foreach from=$countries item=v}
-						<option value="{$v.id_country}" {if ($sl_country == $v.id_country)} selected="selected"{/if}>{$v.name|escape:'htmlall':'UTF-8'}</option>
+						<option value="{$v.id_country}" {if ($sl_country == $v.id_country)} selected="selected"{/if}>{$v.name}</option>
 						{/foreach}
 					</select>
 				</p>

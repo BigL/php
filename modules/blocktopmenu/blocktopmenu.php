@@ -65,19 +65,20 @@ class Blocktopmenu extends Module
 	public function install()
 	{
 		if (!parent::install() ||
-			!$this->registerHook('top') ||
+			!$this->registerHook('displayTop') ||
 			!Configuration::updateGlobalValue('MOD_BLOCKTOPMENU_ITEMS', 'CAT1,CMS1,CMS2,PRD1') ||
 			!Configuration::updateGlobalValue('MOD_BLOCKTOPMENU_SEARCH', '1') ||
+			!$this->registerHook('actionObjectCategoryUpdateAfter') ||
+			!$this->registerHook('actionObjectCategoryDeleteAfter') ||
+			!$this->registerHook('actionObjectCmsUpdateAfter') ||
+			!$this->registerHook('actionObjectCmsDeleteAfter') ||
+			!$this->registerHook('actionObjectSupplierUpdateAfter') ||
+			!$this->registerHook('actionObjectSupplierDeleteAfter') ||
+			!$this->registerHook('actionObjectManufacturerUpdateAfter') ||
+			!$this->registerHook('actionObjectManufacturerDeleteAfter') ||
+			!$this->registerHook('actionObjectProductUpdateAfter') ||
+			!$this->registerHook('actionObjectProductDeleteAfter') ||
 			!$this->registerHook('categoryUpdate') ||
-			!$this->registerHook('categoryDeletion') ||
-			!$this->registerHook('cmsUpdate') ||
-			!$this->registerHook('cmsDeletion') ||
-			!$this->registerHook('supplierUpdate') ||
-			!$this->registerHook('supplierDeletion') ||
-			!$this->registerHook('manufacturerUpdate') ||
-			!$this->registerHook('manufacturerDeletion') ||
-			!$this->registerHook('productUpdate') ||
-			!$this->registerHook('productDeletion') ||
 			!$this->installDB())
 			return false;
 		return true;
@@ -201,7 +202,7 @@ class Blocktopmenu extends Module
 				<div style="display: none">
 				<label>'.$this->l('Items').'</label>
 				<div class="margin-form">
-					<input type="text" name="items" id="itemsInput" value="'.Configuration::get('MOD_BLOCKTOPMENU_ITEMS').'" size="70" />
+					<input type="text" name="items" id="itemsInput" value="'.Tools::safeOutput(Configuration::get('MOD_BLOCKTOPMENU_ITEMS')).'" size="70" />
 				</div>
 				</div>
 
@@ -209,13 +210,6 @@ class Blocktopmenu extends Module
 				<table style="margin-left: 130px;">
 					<tbody>
 						<tr>
-							<td>
-								<select multiple="multiple" id="items" style="width: 300px; height: 160px;">';
-		$this->makeMenuOption();
-		$this->_html .= '</select><br/>
-								<br/>
-								<a href="#" id="removeItem" style="border: 1px solid rgb(170, 170, 170); margin: 2px; padding: 2px; text-align: center; display: block; text-decoration: none; background-color: rgb(250, 250, 250); color: rgb(18, 52, 86);">'.$this->l('Remove').' &gt;&gt;</a>
-							</td>
 							<td style="padding-left: 20px;">
 								<select multiple="multiple" id="availableItems" style="width: 300px; height: 160px;">';
 
@@ -242,7 +236,21 @@ class Blocktopmenu extends Module
 		$this->_html .= '<optgroup label="'.$this->l('Categories').'">';
 		$this->getCategoryOption(1, (int)$id_lang, (int)Shop::getContextShopID());
 		$this->_html .= '</optgroup>';
-
+		
+		// BEGIN Shops
+		if (Shop::isFeatureActive())
+		{
+			$this->_html .= '<optgroup label="'.$this->l('Shops').'">';
+			$shops = Shop::getShopsCollection();
+			foreach ($shops as $shop)
+			{
+				if (!$shop->setUrl() && !$shop->getBaseURL())
+					continue;
+				$this->_html .= '<option value="SHOP'.(int)$shop->id.'">'.$spacer.$shop->name.'</option>';
+			}	
+			$this->_html .= '</optgroup>';
+		}
+		
 		// BEGIN Products
 		$this->_html .= '<optgroup label="'.$this->l('Products').'">';
 		$this->_html .= '<option value="PRODUCT" style="font-style:italic">'.$spacer.$this->l('Choose ID product').'</option>';
@@ -265,7 +273,14 @@ class Blocktopmenu extends Module
 
 		$this->_html .= '</select><br />
 								<br />
-								<a href="#" id="addItem" style="border: 1px solid rgb(170, 170, 170); margin: 2px; padding: 2px; text-align: center; display: block; text-decoration: none; background-color: rgb(250, 250, 250); color: rgb(18, 52, 86);">&lt;&lt; '.$this->l('Add').'</a>
+								<a href="#" id="addItem" style="border: 1px solid rgb(170, 170, 170); margin: 2px; padding: 2px; text-align: center; display: block; text-decoration: none; background-color: rgb(250, 250, 250); color: rgb(18, 52, 86);">'.$this->l('Add').' &gt;&gt;</a>
+							</td>
+							<td>
+								<select multiple="multiple" id="items" style="width: 300px; height: 160px;">';
+		$this->makeMenuOption();
+		$this->_html .= '</select><br/>
+								<br/>
+								<a href="#" id="removeItem" style="border: 1px solid rgb(170, 170, 170); margin: 2px; padding: 2px; text-align: center; display: block; text-decoration: none; background-color: rgb(250, 250, 250); color: rgb(18, 52, 86);">&lt;&lt; '.$this->l('Remove').'</a>
 							</td>
 						</tr>
 					</tbody>
@@ -422,7 +437,6 @@ class Blocktopmenu extends Module
 		$menu_item = $this->getMenuItems();
 		$id_lang = (int)$this->context->language->id;
 		$id_shop = (int)Shop::getContextShopID();
-
 		foreach ($menu_item as $item)
 		{
 			if (!$item)
@@ -481,14 +495,17 @@ class Blocktopmenu extends Module
 						$this->_html .= '<option value="LNK'.$link[0]['id_linksmenutop'].'">'.$link[0]['label'].'</option>';
 					}
 					break;
+				case 'SHOP':
+					$shop = new Shop((int)$id);
+					if (Validate::isLoadedObject($shop))
+						$this->_html .= '<option value="SHOP'.(int)$id.'">'.$shop->name.'</option>'.PHP_EOL;
+					break;
 			}
 		}
 	}
 
 	private function makeMenu()
 	{
-		$this->page_name = Dispatcher::getInstance()->getController();
-
 		$menu_items = $this->getMenuItems();
 		$id_lang = (int)$this->context->language->id;
 		$id_shop = (int)Shop::getContextShopID();
@@ -525,7 +542,7 @@ class Blocktopmenu extends Module
 					$category = new CMSCategory((int)$id, (int)$id_lang);
 					if (count($category))
 					{
-						$this->_menu .= '<li><a href="#">'.$category->name.'</a>';
+						$this->_menu .= '<li><a href="'.$category->getLink().'">'.$category->name.'</a>';
 						$this->getCMSMenuItems($category->id);
 						$this->_menu .= '</li>'.PHP_EOL;
 					}
@@ -555,6 +572,15 @@ class Blocktopmenu extends Module
 					}
 					break;
 
+				case 'SHOP':
+					$selected = ($this->page_name == 'index' && ($this->context->shop->id == $id)) ? ' class="sfHover"' : '';
+					$shop = new Shop((int)$id);
+					if (Validate::isLoadedObject($shop))
+					{
+						$link = new Link;
+						$this->_menu .= '<li'.$selected.'><a href="'.$shop->getBaseURL().'">'.$shop->name.'</a></li>'.PHP_EOL;
+					}
+					break;
 				case 'LNK':
 					$link = MenuTopLinks::get((int)$id, (int)$id_lang, (int)$id_shop);
 					if (count($link))
@@ -687,11 +713,12 @@ class Blocktopmenu extends Module
 			$this->_html .= '<option value="CMS'.$page['id_cms'].'">'.$spacer.$page['meta_title'].'</option>';
 	}
 
-	public function hookTop($param)
+	public function hookDisplayTop($param)
 	{
 		$this->user_groups =  ($this->context->customer->isLogged() ? $this->context->customer->getGroups() : array(Configuration::get('PS_UNIDENTIFIED_GROUP')));
-		$smarty_cache_id = 'blocktopmenu-'.(int)$this->context->shop->id.'-'.implode(', ',$this->user_groups).'-'.(int)$this->context->language->id.'-'.(int)Tools::getValue('id_category').'-'.(int)Tools::getValue('id_manufacturer').'-'.(int)Tools::getValue('id_supplier').'-'.(int)Tools::getValue('id_cms').'-'.(int)Tools::getValue('id_product');
-
+		$this->page_name = Dispatcher::getInstance()->getController();
+		$smarty_cache_id = 'blocktopmenu-'.$this->page_name.'-'.(int)$this->context->shop->id.'-'.implode(', ',$this->user_groups).'-'.(int)$this->context->language->id.'-'.(int)Tools::getValue('id_category').'-'.(int)Tools::getValue('id_manufacturer').'-'.(int)Tools::getValue('id_supplier').'-'.(int)Tools::getValue('id_cms').'-'.(int)Tools::getValue('id_product');
+		$this->context->smarty->cache_lifetime = 31536000;
 		Tools::enableCache();
 		if (!$this->isCached('blocktopmenu.tpl', $smarty_cache_id))
 		{
@@ -705,7 +732,6 @@ class Blocktopmenu extends Module
 		$this->context->controller->addJS($this->_path.'js/superfish-modified.js');
 		$this->context->controller->addCSS($this->_path.'css/superfish-modified.css');
 
-		$this->context->smarty->cache_lifetime = 31536000;
 		$html = $this->display(__FILE__, 'blocktopmenu.tpl', $smarty_cache_id);
 		Tools::restoreCacheSettings();
 		return $html;
@@ -770,52 +796,57 @@ class Blocktopmenu extends Module
 	}
 	
 
-	public function hookCategoryUpdate($params)
+	public function hookActionObjectCategoryUpdateAfter($params)
 	{
 		$this->clearMenuCache();
 	}
 	
-	public function hookCategoryDeletion($params)
+	public function hookActionObjectCategoryDeleteAfter($params)
 	{
 		$this->clearMenuCache();
 	}
 	
-	public function hookCmsUpdate($params)
+	public function hookActionObjectCmsUpdateAfter($params)
 	{
 		$this->clearMenuCache();
 	}
 	
-	public function hookCmsDeletion($params)
+	public function hookActionObjectCmsDeleteAfter($params)
 	{
 		$this->clearMenuCache();
 	}
 	
-	public function hookSupplierUpdate($params)
+	public function hookActionObjectSupplierUpdateAfter($params)
 	{
 		$this->clearMenuCache();
 	}
 	
-	public function hookSupplierDeletion($params)
+	public function hookActionObjectSupplierDeleteAfter($params)
 	{
 		$this->clearMenuCache();
 	}	
 
-	public function hookManufacturerUpdate($params)
+	public function hookActionObjectManufacturerUpdateAfter($params)
 	{
 		$this->clearMenuCache();
 	}
 	
-	public function hookManufacturerDeletion($params)
+	public function hookActionObjectManufacturerDeleteAfter($params)
 	{
 		$this->clearMenuCache();
 	}
 	
-	public function hookProductUpdate($params)
+	public function hookActionObjectProductUpdateAfter($params)
 	{
 		$this->clearMenuCache();
 	}
 	
-	public function hookProductDeletion($params)
+	public function hookActionObjectProductDeleteAfter($params)
+	{
+		$this->clearMenuCache();
+	}
+	
+	public function hookCategoryUpdate($params)
 	{
 		$this->clearMenuCache();
 	}

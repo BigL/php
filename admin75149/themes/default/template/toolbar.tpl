@@ -19,7 +19,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 15552 $
+*  @version  Release: $Revision: 16913 $
 *  @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 *}
@@ -38,7 +38,9 @@
 				{/foreach}
 			</ul>
 
-			<script language="javascript">
+			<script language="javascript" type="text/javascript">
+			//<![CDATA[
+				var submited = false
 				$(function() {
 					//get reference on save link
 					btn_save = $('span[class~="process-icon-save"]').parent();
@@ -82,6 +84,11 @@
 						//submit the form
 						{block name=formSubmit}
 							btn_save.click(function() {
+								// Avoid double click
+								if (submited)
+									return false;
+								submited = true;
+								
 								//add hidden input to emulate submit button click when posting the form -> field name posted
 								btn_submit.before('<input type="hidden" name="'+btn_submit.attr("name")+'" value="1" />');
 
@@ -102,6 +109,7 @@
 						{/block}
 					}
 				});
+			//]]>
 			</script>
 		{/block}
 		<div class="pageTitle">
@@ -112,7 +120,7 @@
 							{* Use strip_tags because if the string already has been through htmlentities using escape will break it *}
 							<span class="breadcrumb item-{$key} ">{$item|strip_tags}
 								{if !$smarty.foreach.title.last}
-									<img alt="&gt;" style="margin-right:5px" src="../img/admin/separator_breadcrum.png">
+									<img alt="&gt;" style="margin-right:5px" src="../img/admin/separator_breadcrumb.png" />
 								{/if}
 							</span>
 						{/foreach}

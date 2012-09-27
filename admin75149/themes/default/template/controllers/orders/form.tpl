@@ -24,7 +24,7 @@
 *  International Registered Trademark & Property of PrestaShop SA
 *}
 <script type="text/javascript">
-	var id_cart = '';
+	var id_cart = {$cart->id|intval};
 	var id_customer = '';
 	var changed_shipping_price = false;
 	var shipping_price_selected_carrier = '';
@@ -51,7 +51,7 @@
 		$('#product').typeWatch({
 			captureLength: 1,
 			highlight: true,
-			wait: 100,
+			wait: 750,
 			callback: function(){ searchProducts(); }
 		});
 		$('#payment_module_name').change(function() {
@@ -69,10 +69,10 @@
 		$('#id_currency').change(function() {
 			updateCurrency();
 		});
-		$('#id_lang').change(function() {
+		$('#id_lang').change(function(){
 			updateLang();
 		});
-		$('#delivery_option,#carrier_recycled_package,#order_gift,#gift_message,#id_address_delivery').change(function() {
+		$('#delivery_option,#carrier_recycled_package,#order_gift,#gift_message').change(function() {
 			updateDeliveryOption();
 		});
 		$('#shipping_price').change(function() {
@@ -132,14 +132,14 @@
 				add_cart_rule(data.id_cart_rule);
 			});
 		{if $cart->id}
-			setupCustomer('{$cart->id_customer}');
-			useCart('{$cart->id}');
+			setupCustomer({$cart->id_customer|intval});
+			useCart('{$cart->id|intval}');
 		{/if}
 
 		$('.delete_product').live('click', function(e) {
 			e.preventDefault();
 			var to_delete = $(this).attr('rel').split('_');
-			deleteProduct(to_delete[1], to_delete[2]);
+			deleteProduct(to_delete[1], to_delete[2], to_delete[3]);
 		});
 		$('.delete_discount').live('click', function(e) {
 			e.preventDefault();
@@ -174,7 +174,7 @@
 				}
 			});
 		});
-		
+
 		$('.duplicate_order').live('click', function(e) {
 			e.preventDefault();
 			duplicateOrder($(this).attr('rel'));
@@ -184,7 +184,7 @@
 			if ($(this).val() != cart_quantity[$(this).attr('rel')])
 			{
 				var product = $(this).attr('rel').split('_');
-				updateQty(product[0], product[1], $(this).val() - cart_quantity[$(this).attr('rel')]);
+				updateQty(product[0], product[1], product[2], $(this).val() - cart_quantity[$(this).attr('rel')]);
 			}
 		});
 		$('.increaseqty_product, .decreaseqty_product').live('click', function(e) {
@@ -193,7 +193,7 @@
 			var sign = '';
 			if ($(this).hasClass('decreaseqty_product'))
 				sign = '-';
-			updateQty(product[0], product[1], sign+1);
+			updateQty(product[0], product[1],product[2], sign+1);
 		});
 		$('#id_product').live('keydown', function(e) {
 			$(this).click();
@@ -234,10 +234,6 @@
 				}
 			});
 		});
-		/*$('.fancybox').live('click', function(e) {
-			$(this).fancybox().trigger('click');
-			return false;
-		});*/
 		resetBind();
 	});
 
@@ -252,7 +248,7 @@
 			onClosed: useCart(id_cart)
 		});*/
 	}
-	
+
 	function add_cart_rule(id_cart_rule)
 	{
 		$.ajax({
@@ -355,7 +351,7 @@
 		$.ajax({
 			type:"POST",
 			url: "{$link->getAdminLink('AdminCarts')}",
-			async: true,
+			async: false,
 			dataType: "json",
 			data : {
 				ajax: "1",
@@ -371,12 +367,12 @@
 			}
 		});
 	}
-	
+
 	function getSummary()
 	{
 		useCart(id_cart);
 	}
-	
+
 	function deleteVoucher(id_cart_rule)
 	{
 		$.ajax({
@@ -400,7 +396,7 @@
 		});
 	}
 
-	function deleteProduct(id_product, id_product_attribute)
+	function deleteProduct(id_product, id_product_attribute, id_customization)
 	{
 		$.ajax({
 			type:"POST",
@@ -414,6 +410,7 @@
 				action: "deleteProduct",
 				id_product: id_product,
 				id_product_attribute: id_product_attribute,
+				id_customization: id_customization,
 				id_cart: id_cart,
 				id_customer: id_customer
 				},
@@ -470,14 +467,15 @@
 		$.ajax({
 			type:"POST",
 			url : "{$link->getAdminLink('AdminCarts')}",
-			async: true,
+			async: false,
 			dataType: "json",
 			data : {
 				ajax: "1",
 				token: "{getAdminToken tab='AdminCarts'}",
 				tab: "AdminCarts",
 				action: "searchCarts",
-				id_customer: id_customer
+				id_customer: id_customer,
+				id_cart: id_cart
 			},
 			success : function(res)
 			{
@@ -552,10 +550,13 @@
 				var attributes_html = '';
 				var customization_html = '';
 				stock = {};
-				
+
 				if(res.found)
 				{
-					$('#products_err').hide();
+					if (!customization_errors)
+						$('#products_err').hide();
+					else
+						customization_errors = false;
 					$('#products_found').show();
 					products_found += '<label>{l s='Product:'}</label><select id="id_product" onclick="display_product_attributes();display_product_customizations();">';
 					attributes_html += '<label>{l s='Combination:'}</label>';
@@ -563,14 +564,15 @@
 						products_found += '<option '+(this.combinations.length > 0 ? 'rel="'+this.qty_in_stock+'"' : '')+' value="'+this.id_product+'">'+this.name+(this.combinations.length == 0 ? ' - '+this.formatted_price : '')+'</option>';
 						attributes_html += '<select class="id_product_attribute" id="ipa_'+this.id_product+'" style="display:none;">';
 						var id_product = this.id_product;
+						stock[id_product] = new Array();
 						if (this.customizable == '1')
 						{
 							customization_html += '<fieldset class="width3"><legend>{l s='Customization'}</legend><form id="customization_'+id_product+'" class="id_customization" method="post" enctype="multipart/form-data" action="'+admin_cart_link+'" style="display:none;">';
-							customization_html += '<input type="hidden" name="id_product" value="'+id_product+'"';
-							customization_html += '<input type="hidden" name="id_cart" value="'+id_cart+'"';
-							customization_html += '<input type="hidden" name="action" value="updateCustomizationFields"';
-							customization_html += '<input type="hidden" name="id_customer" value="'+id_customer+'"';
-							customization_html += '<input type="hidden" name="ajax" value="1"';
+							customization_html += '<input type="hidden" name="id_product" value="'+id_product+'" />';
+							customization_html += '<input type="hidden" name="id_cart" value="'+id_cart+'" />';
+							customization_html += '<input type="hidden" name="action" value="updateCustomizationFields" />';
+							customization_html += '<input type="hidden" name="id_customer" value="'+id_customer+'" />';
+							customization_html += '<input type="hidden" name="ajax" value="1" />';
 							$.each(this.customization_fields, function() {
 								customization_html += '<p><label for="customization_'+id_product+'_'+this.id_customization_field+'">';
 								if (this.required == 1)
@@ -584,13 +586,13 @@
 							});
 							customization_html += '</fieldset></form>';
 						}
-						
+
 						$.each(this.combinations, function() {
 							attributes_html += '<option rel="'+this.qty_in_stock+'" '+(this.default_on == 1 ? 'selected="selected"' : '')+' value="'+this.id_product_attribute+'">'+this.attributes+' - '+this.formatted_price+'</option>';
+							stock[id_product][this.id_product_attribute] = this.qty_in_stock;
 						});
-						
-						stock[this.id_product] = this.stock;
 
+						stock[this.id_product][0] = this.stock[0];
 						attributes_html += '</select>';
 					});
 					products_found += '</select>';
@@ -611,7 +613,7 @@
 			}
 		});
 	}
-	
+
 	function display_product_customizations()
 	{
 		if ($('#products_found #customization_list').contents().find('#customization_'+$('#id_product option:selected').val()).children().length === 0)
@@ -624,7 +626,7 @@
 			$('#products_found #customization_list').css('height',$('#products_found #customization_list').contents().find('#customization_'+$('#id_product option:selected').val()).height()+95+'px');
 		}
 	}
-	
+
 	function display_product_attributes()
 	{
 		if ($('#ipa_'+$('#id_product option:selected').val()+' option').length === 0)
@@ -637,16 +639,20 @@
 		}
 	}
 
-	function updateCartProducts(products)
+	function updateCartProducts(products, gifts)
 	{
 		var cart_content = '';
 		$.each(products, function() {
-			cart_quantity[this.id_product+'_'+this.id_product_attribute] = this.cart_quantity;
+			cart_quantity[Number(this.id_product)+'_'+Number(this.id_product_attribute)+'_'+Number(this.id_customization)] = this.cart_quantity;
 			cart_content += '<tr><td><img src="'+this.image_link+'" title="'+this.name+'" /></td><td>'+this.name+'<br />'+this.attributes_small+'</td><td>'+this.reference+'</td><td><input type="text" size="7" rel="'+this.id_product+'_'+this.id_product_attribute+'" class="product_unit_price" value="'+this.price+'" />&nbsp;<span class="currency_sign"></span></td><td>';
-			cart_content += '<div style="float:left;"><a href="#" class="increaseqty_product" rel="'+this.id_product+'_'+this.id_product_attribute+'" ><img src="../img/admin/up.gif" /></a><br /><a href="#" class="decreaseqty_product" rel="'+this.id_product+'_'+this.id_product_attribute+'"><img src="../img/admin/down.gif" /></a></div>';
-			cart_content += '<div style="float:left;"><input type="text" rel="'+this.id_product+'_'+this.id_product_attribute+'" class="cart_quantity" size="2" value="'+this.cart_quantity+'" />';
-			cart_content += '<a href="#" class="delete_product" rel="delete_'+this.id_product+'_'+this.id_product_attribute+'" ><img src="../img/admin/delete.gif" /></a>';
+			cart_content += '<div style="float:left;"><a href="#" class="increaseqty_product" rel="'+this.id_product+'_'+this.id_product_attribute+'_'+(this.id_customization ? this.id_customization : 0)+'" ><img src="../img/admin/up.gif" /></a><br /><a href="#" class="decreaseqty_product" rel="'+this.id_product+'_'+this.id_product_attribute+'_'+(this.id_customization ? this.id_customization : 0)+'"><img src="../img/admin/down.gif" /></a></div>';
+			cart_content += '<div style="float:left;"><input type="text" rel="'+this.id_product+'_'+this.id_product_attribute+'_'+(this.id_customization ? this.id_customization : 0)+'" class="cart_quantity" size="2" value="'+this.cart_quantity+'" />';
+			cart_content += '<a href="#" class="delete_product" rel="delete_'+this.id_product+'_'+this.id_product_attribute+'_'+(this.id_customization ? this.id_customization : 0)+'" ><img src="../img/admin/delete.gif" /></a>';
 			cart_content += '</div></td><td>'+this.total+'&nbsp;<span class="currency_sign"></span></td></tr>';
+		});
+		$.each(gifts, function() {
+			cart_content += '<tr><td><img src="'+this.image_link+'" title="'+this.name+'" /></td><td>'+this.name+'<br />'+this.attributes_small+'</td><td>'+this.reference+'</td>';
+			cart_content += '<td>{l s='Gift !'}</td><td>'+this.cart_quantity+'</td><td>{l s='Gift !'}</td></tr>';
 		});
 		$('#customer_cart tbody').html(cart_content);
 	}
@@ -674,7 +680,7 @@
 
 	function displaySummary(jsonSummary)
 	{
-		updateCartProducts(jsonSummary.summary.products);
+		updateCartProducts(jsonSummary.summary.products, jsonSummary.summary.gift_products);
 		updateCartVouchers(jsonSummary.summary.discounts);
 		updateAddressesList(jsonSummary.addresses, jsonSummary.cart.id_address_delivery, jsonSummary.cart.id_address_invoice);
 
@@ -682,7 +688,7 @@
 			$('#carriers_part,#summary_part').hide();
 		else
 			$('#carriers_part,#summary_part').show();
-		
+
 		updateDeliveryOptionList(jsonSummary.delivery_option_list);
 
 		if (jsonSummary.cart.gift == 1)
@@ -697,7 +703,7 @@
 			$('#free_shipping').attr('checked', true);
 		else
 			$('#free_shipping').removeAttr('checked');
-		
+
 		$('#gift_message').html(jsonSummary.cart.gift_message);
 		if(!changed_shipping_price)
 			$('#shipping_price').html('<b>'+jsonSummary.summary.total_shipping+'</b>');
@@ -722,7 +728,7 @@
 		resetBind();
 	}
 
-	function updateQty(id_product, id_product_attribute, qty)
+	function updateQty(id_product, id_product_attribute, id_customization, qty)
 	{
 		$.ajax({
 			type:"POST",
@@ -736,6 +742,7 @@
 				action: "updateQty",
 				id_product: id_product,
 				id_product_attribute: id_product_attribute,
+				id_customization: id_customization,
 				qty: qty,
 				id_customer: id_customer,
 				id_cart: id_cart,
@@ -773,7 +780,7 @@
 		else
 		{
 			$('#products_err').hide();
-			updateQty(id_product, $('#ipa_'+id_product+' option:selected').val(), $('#qty').val());
+			updateQty(id_product, $('#ipa_'+id_product+' option:selected').val(), 0, $('#qty').val());
 		}
 	}
 
@@ -879,7 +886,7 @@
 			}
 		});
 	}
-	
+
 	function updateAddressesList(addresses, id_address_delivery, id_address_invoice)
 	{
 		var addresses_delivery_options = '';
@@ -905,7 +912,7 @@
 			$('#addresses_err').hide();
 			$('#address_delivery, #address_invoice').show();
 		}
-			
+
 		$('#id_address_delivery').html(addresses_delivery_options);
 		$('#id_address_invoice').html(addresses_invoice_options);
 		$('#address_delivery_detail').html(address_delivery_detail);
@@ -932,6 +939,7 @@
 			success : function(res)
 			{
 				displaySummary(res);
+				updateDeliveryOption();
 			}
 		});
 	}
@@ -946,14 +954,14 @@
 	<div class="margin-form">
 		<input type="text" id="customer" value="" />
 		<p>{l s='Search a customer by tapping the first letters of his name'}</p>
-		<a class="fancybox button" href="{$link->getAdminLink('AdminCustomers')}&addcustomer&liteDisplaying=1&submitFormAjax=1#">
+		<a class="fancybox button" href="{$link->getAdminLink('AdminCustomers')|escape:'htmlall':'UTF-8'}&addcustomer&liteDisplaying=1&submitFormAjax=1#">
 			<img src="../img/admin/add.gif" title="new"/><span>{l s='Add new customer'}</span>
 		</a>
 	</div>
 	<div id="customers">
 	</div>
 </fieldset><br />
-<form action="{$link->getAdminLink('AdminOrders')}&submitAdd{$table}=1" method="post" autocomplete="off">
+<form action="{$link->getAdminLink('AdminOrders')|escape:'htmlall':'UTF-8'}&submitAdd{$table}=1" method="post" autocomplete="off">
 <fieldset id="products_part" style="display:none;"><legend><img src="../img/t/AdminCatalog.gif" />{l s='Cart'}</legend>
 	<div>
 		<label>{l s='Search a product:'} </label>
@@ -990,12 +998,12 @@
 	<div>
 		<table cellspacing="0" cellpadding="0" class="table width5" id="customer_cart">
 				<colgroup>
-					<col width="50px"></col>
-					<col width=""></col>
-					<col width="90px"></col>
-					<col width="100px"></col>
-					<col width="50px"></col>
-					<col width="50px"></col>
+					<col width="50px">
+					<col width="">
+					<col width="90px">
+					<col width="100px">
+					<col width="50px">
+					<col width="50px">
 				</colgroup>
 			<thead>
 				<tr>
@@ -1042,10 +1050,10 @@
 				<h3>{l s='Carts:'}</h3>
 				<table cellspacing="0" cellpadding="0" class="table  width5">
 					<colgroup>
-						<col width="10px"></col>
-						<col width=""></col>
-						<col width="70px"></col>
-						<col width="50px"></col>
+						<col width="10px">
+						<col width="">
+						<col width="70px">
+						<col width="50px">
 					</colgroup>
 				<thead>
 					<tr>
@@ -1063,13 +1071,13 @@
 				<h3>{l s='Orders:'}</h3>
 				<table cellspacing="0" cellpadding="0" class="table  width5">
 					<colgroup>
-						<col width="10px"></col>
-						<col width="50px"></col>
-						<col width=""></col>
-						<col width="90px"></col>
-						<col width="100px"></col>
-						<col width="250px"></col>
-						<col width="50px"></col>
+						<col width="10px">
+						<col width="50px">
+						<col width="">
+						<col width="90px">
+						<col width="100px">
+						<col width="250px">
+						<col width="50px">
 					</colgroup>
 					<thead>
 						<tr>
@@ -1095,7 +1103,7 @@
 	<p>
 		<label>{l s='Search a voucher:'} </label>
 		<input type="text" id="voucher" value="" />
-		<a class="fancybox button" href="{$link->getAdminLink('AdminCartRules')}&addcart_rule&liteDisplaying=1&submitFormAjax=1#"><img src="../img/admin/add.gif" title="new"/>{l s='Add new voucher'}</a>
+		<a class="fancybox button" href="{$link->getAdminLink('AdminCartRules')|escape:'htmlall':'UTF-8'}&addcart_rule&liteDisplaying=1&submitFormAjax=1#"><img src="../img/admin/add.gif" title="new"/>{l s='Add new voucher'}</a>
 	</p>
 	<div class="margin-form">
 		<table cellspacing="0" cellpadding="0" class="table" id="voucher_list">
@@ -1131,36 +1139,35 @@
 		<div id="address_invoice_detail">
 		</div>
 	</div>
-<a class="fancybox button" id="new_address" href="{$link->getAdminLink('AdminAddresses')}&addaddress&id_customer=42&liteDisplaying=1&submitFormAjax=1#"><img src="../img/admin/add.gif" title="new"/>{l s='Add new address'}</a>
+<a class="fancybox button" id="new_address" href="{$link->getAdminLink('AdminAddresses')|escape:'htmlall':'UTF-8'}&addaddress&id_customer=42&liteDisplaying=1&submitFormAjax=1#"><img src="../img/admin/add.gif" title="new"/>{l s='Add new address'}</a>
 </fieldset>
 <br />
 <fieldset id="carriers_part" style="display:none;">
 	<legend><img src="../img/t/AdminCarriers.gif" />{l s='Shipping'}</legend>
 	<div id="carriers_err" style="display:none;" class="warn"></div>
-		<div id="carrier_form">
-			<div>
-				<p>
-					<label>{l s='Delivery option:'} </label>
-					<select name="delivery_option" id="delivery_option">
-					</select>
-				</p>
-				<p>
-					<label for="shipping_price">{l s='Shipping price:'}</label> <span id="shipping_price"  name="shipping_price"></span>&nbsp;<span class="currency_sign"></span>&nbsp;
-				</p>
-				<p>
-					<label for="free_shipping">{l s='Free shipping:'}</label>
-					<input type="checkbox" id="free_shipping" name="free_shipping" value="1" />
-				</p>
-			</div>
-			<div id="float:left;">
-				{if $recyclable_pack}
-					<p><input type="checkbox" name="carrier_recycled_package" value="1" id="carrier_recycled_package" />  <label for="carrier_recycled_package">{l s='Recycled package'}</label></p>
-				{/if}
-				{if $gift_wrapping}
-					<p><input type="checkbox" name="order_gift" id="order_gift" value="1" /> <label for="order_gift">{l s='Gift'}</label></p>
-					<p><label for="gift_message">{l s='Gift message:'}</label><textarea id="gift_message" cols="40" rows="4"></textarea></p>
-				{/if}
-			</div>
+	<div id="carrier_form">
+		<div>
+			<p>
+				<label>{l s='Delivery option:'} </label>
+				<select name="delivery_option" id="delivery_option">
+				</select>
+			</p>
+			<p>
+				<label for="shipping_price">{l s='Shipping price:'}</label> <span id="shipping_price"  name="shipping_price"></span>&nbsp;<span class="currency_sign"></span>&nbsp;
+			</p>
+			<p>
+				<label for="free_shipping">{l s='Free shipping:'}</label>
+				<input type="checkbox" id="free_shipping" name="free_shipping" value="1" />
+			</p>
+		</div>
+		<div id="float:left;">
+			{if $recyclable_pack}
+				<p><input type="checkbox" name="carrier_recycled_package" value="1" id="carrier_recycled_package" />  <label for="carrier_recycled_package">{l s='Recycled package'}</label></p>
+			{/if}
+			{if $gift_wrapping}
+				<p><input type="checkbox" name="order_gift" id="order_gift" value="1" /> <label for="order_gift">{l s='Gift'}</label></p>
+				<p><label for="gift_message">{l s='Gift message:'}</label><textarea id="gift_message" cols="40" rows="4"></textarea></p>
+			{/if}
 		</div>
 	</div>
 </fieldset>
@@ -1215,3 +1222,4 @@
 	<div id="loader">
 	</div>
 </div>
+

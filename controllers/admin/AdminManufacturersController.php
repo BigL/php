@@ -165,7 +165,7 @@ class AdminManufacturersControllerCore extends AdminController
 				'filter_key' => 'a!name'
 			),
 			'postcode' => array(
-				'title' => $this->l('Postcode / Zip Code'),
+				'title' => $this->l('Postal Code/Zip Code'),
 				'align' => 'right',
 				'width' => 50
 			),
@@ -188,7 +188,8 @@ class AdminManufacturersControllerCore extends AdminController
 				ON (cl.`id_country` = a.`id_country` AND cl.`id_lang` = '.(int)$this->context->language->id.') ';
 		$this->_join .= '
 			LEFT JOIN `'._DB_PREFIX_.'manufacturer` m
-				ON (a.`id_manufacturer` = m.`id_manufacturer`)';
+				ON (a.`id_manufacturer` = m.`id_manufacturer`)'.
+				Shop::addSqlAssociation('manufacturer', 'm');
 		$this->_where = 'AND a.`id_customer` = 0 AND a.`id_supplier` = 0 AND a.`id_warehouse` = 0';
 
 		$this->context->smarty->assign('title_list', $this->l('Manufacturers addresses:'));

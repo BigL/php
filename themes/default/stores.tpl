@@ -31,9 +31,9 @@
 
 {if $simplifiedStoresDiplay}
 	{if $stores|@count}
-	<p>{l s='Here are the details for our stores, please feel free to contact us:'}</p>
+	<p>{l s='Here are our store locations, please feel free to contact us:'}</p>
 	{foreach $stores as $store}
-		<div class="store-small">
+		<div class="store-small grid_2">
 			{if $store.has_picture}<p><img src="{$img_store_dir}{$store.id_store}-medium.jpg" alt="" width="{$mediumSize.width}" height="{$mediumSize.height}" /></p>{/if}
 			<p>
 				<b>{$store.name|escape:'htmlall':'UTF-8'}</b><br />
@@ -43,6 +43,7 @@
 				{$store.country|escape:'htmlall':'UTF-8'}<br />
 				{if $store.phone}{l s='Phone:' js=0} {$store.phone}{/if}
 			</p>
+				{if isset($store.working_hours)}{$store.working_hours}{/if}
 		</div>
 	{/foreach}
 	{/if}
@@ -57,7 +58,7 @@
 		var defaultLat = '{$defaultLat}';
 		var defaultLong = '{$defaultLong}';
 		
-		var translation_1 = '{l s='No store found, try selecting a wider radius' js=1}';
+		var translation_1 = '{l s='No stores found, try selecting a wider radius' js=1}';
 		var translation_2 = '{l s='store found - see details:' js=1}';
 		var translation_3 = '{l s='stores found - see all results:' js=1}';
 		var translation_4 = '{l s='Phone:' js=1}';
@@ -69,13 +70,14 @@
 		var img_store_dir = '{$img_store_dir}';
 		var img_ps_dir = '{$img_ps_dir}';
 		var searchUrl = '{$searchUrl}';
+		var logo_store = '{$logo_store}';
 		//]]>
 	</script>
 
-	<p>{l s='Enter a location (e.g. zip / postal code, address, city or country) in order to find the nearest stores.'}</p>
+	<p>{l s='Enter a location (e.g. zip/postal code, address, city or country) in order to find the nearest stores.'}</p>
 	<p>
 		<label for="addressInput">{l s='Your location:'}</label>
-		<input type="text" name="location" id="addressInput" value="{l s='Address, zip / postal code, city, state or country'}" onclick="this.value='';" />
+		<input type="text" name="location" id="addressInput" value="{l s='Address, zip/postal code, city, state or country'}" onclick="this.value='';" />
 	</p>
 	<p>
 		<label for="radiusSelect">{l s='Radius:'}</label> 

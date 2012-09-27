@@ -20,7 +20,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 13847 $
+*  @version  Release: $Revision: 16035 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -56,7 +56,7 @@ class CmsControllerCore extends FrontController
 
 		/* assignCase (1 = CMS page, 2 = CMS category) */
 		if (Validate::isLoadedObject($this->cms)
-			&& ($this->cms->isAssociatedToShop() && $this->cms->active || (Tools::getValue('adtoken') == Tools::encrypt('PreviewCMS'.$this->cms->id))))
+			&& ($this->cms->isAssociatedToShop() && $this->cms->active || (Tools::getValue('adtoken') == Tools::getAdminToken('AdminCmsContent'.(int)Tab::getIdFromClassName('AdminCmsContent').(int)Tools::getValue('id_employee')))))
 			$this->assignCase = 1;
 		else if (Validate::isLoadedObject($this->cms_category))
 			$this->assignCase = 2;

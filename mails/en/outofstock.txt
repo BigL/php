@@ -1,6 +1,6 @@
 Hi {firstname} {lastname},
 
-Thanks for your order #{id_order} from {shop_name}.
+Thanks for your order with the reference {order_name} from {shop_name}.
 
 Unfortunately, one or more items are currently out of stock.
 This may cause a slight delay in your delivery.
@@ -12,4 +12,4 @@ If you have guest account, you can follow your order using this link: {shop_url}
 
 {shop_name} - {shop_url}
 
-{shop_url} powered by PrestaShop™
+{shop_url} powered by PrestaShop&trade;

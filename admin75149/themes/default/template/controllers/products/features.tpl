@@ -19,7 +19,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 14640 $
+*  @version  Release: $Revision: 16903 $
 *  @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 *}
@@ -38,22 +38,22 @@
 	<br />
 	<table border="0" cellpadding="0" cellspacing="0" class="table" style="width:100%;">
 		<colgroup>
-			<col width="300"></col>
-			<col width=""></col>
-			<col width="300"></col>
+			<col width="300">
+			<col width="">
+			<col width="300">
 		</colgroup>
 		<tr>
-			<th height="39px">{l s='Feature'}</td>
-			<th>{l s='Pre-defined value'}</td>
-			<th><u>{l s='or'}</u> {l s='Customized value'}</td>
+			<th height="39px">{l s='Feature'}</th>
+			<th>{l s='Pre-defined value'}</th>
+			<th><u>{l s='or'}</u> {l s='Customized value'}</th>
 		</tr>
 	</table>
 	{foreach from=$available_features item=available_feature}
 	<table cellpadding="5" style="background-color:#fff; width: 100%;border:1px solid #ccc; border-top:none;  padding:4px 6px;">
 			<colgroup>
-			<col width="300"></col>
-			<col width=""></col>
-			<col width="300"></col>
+			<col width="300">
+			<col width="">
+			<col width="300">
 		</colgroup>
 	<tr>
 		<td>{$available_feature.name}</td>
@@ -72,7 +72,7 @@
 		{else}
 			<input type="hidden" name="feature_{$available_feature.id_feature}_value" value="0" />
 				<span>{l s='N/A'} -
-				<a href="{$link->getAdminLink('AdminFeatures')}&amp;addfeature_value&id_feature={$available_feature.id_feature}"
+				<a href="{$link->getAdminLink('AdminFeatures')|escape:'htmlall':'UTF-8'}&amp;addfeature_value&id_feature={$available_feature.id_feature}"
 				 class="confirm_leave button"><img src="../img/admin/add.gif" alt="values_first" title="{l s='Add pre-defined values first'}" />&nbsp;{l s='Add pre-defined values first'}</a>
 			</span>
 		{/if}
@@ -94,7 +94,7 @@
 	</table>
 	<div class="separation"></div>
 	<div>
-		<a href="{$link->getAdminLink('AdminFeatures')}&amp;addfeature" class="confirm_leave button">
+		<a href="{$link->getAdminLink('AdminFeatures')|escape:'htmlall':'UTF-8'}&amp;addfeature" class="confirm_leave button">
 			<img src="../img/admin/add.gif" alt="new_features" title="{l s='Add a new feature'}" />&nbsp;{l s='Add a new feature'}
 		</a>
 	</div>

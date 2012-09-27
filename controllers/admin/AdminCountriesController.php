@@ -240,7 +240,7 @@ class AdminCountriesControllerCore extends AdminController
 					'name' => 'zip_code_format',
 					'class' => 'uppercase',
 					'required' => true,
-					'desc' => $this->l('National zip code (L for a letter, N for a number and C for the Iso code), e.g. NNNNN for the United States. No verification if undefined')
+					'desc' => $this->l('Zip Code format (L for a letter, N for a number and C for the Iso code), e.g. NNNNN for the United States. No verification if undefined')
 				),
 				array(
 					'type' => 'address_layout',
@@ -253,7 +253,7 @@ class AdminCountriesControllerCore extends AdminController
 				),
 				array(
 					'type' => 'radio',
-					'label' => $this->l('Status:'),
+					'label' => $this->l('Active:'),
 					'name' => 'active',
 					'required' => false,
 					'class' => 't',
@@ -270,7 +270,7 @@ class AdminCountriesControllerCore extends AdminController
 							'label' => $this->l('Disabled')
 						)
 					),
-					'desc' => $this->l('Display this country')
+					'desc' => $this->l('Display this country to your customer (the country will always be displayed in the back office)')
 				),
 				array(
 					'type' => 'radio',

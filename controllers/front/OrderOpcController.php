@@ -165,10 +165,11 @@ class OrderOpcControllerCore extends ParentOrderController
 							/* Bypass payment step if total is 0 */
 							if (($id_order = $this->_checkFreeOrder()) && $id_order)
 							{
+								$order = new Order((int)$id_order);
 								$email = $this->context->customer->email;
 								if ($this->context->customer->is_guest)
 									$this->context->customer->logout(); // If guest we clear the cookie for security reason
-								die('freeorder:'.$id_order.':'.$email);
+								die('freeorder:'.$order->reference.':'.$email);
 							}
 							exit;
 							break;
@@ -191,7 +192,11 @@ class OrderOpcControllerCore extends ParentOrderController
 									$this->context->cart->id_address_invoice = Tools::isSubmit('same') ? $this->context->cart->id_address_delivery : (int)(Tools::getValue('id_address_invoice'));
 									if (!$this->context->cart->update())
 										$this->errors[] = Tools::displayError('An error occurred while updating your cart.');
-									
+
+									// Address has changed, so we check if the cart rules still apply
+									CartRule::autoRemoveFromCart($this->context);
+									CartRule::autoAddToCart($this->context);
+		
 									if (!$this->context->cart->isMultiAddressDelivery())
 										$this->context->cart->setNoMultishipping(); // As the cart is no multishipping, set each delivery address lines with the main delivery address
 
@@ -267,11 +272,16 @@ class OrderOpcControllerCore extends ParentOrderController
 	{
 		parent::setMedia();
 
-		// Adding CSS style sheet
-		$this->addCSS(_THEME_CSS_DIR_.'order-opc.css');
-		// Adding JS files
-		$this->addJS(_THEME_JS_DIR_.'order-opc.js');
-		$this->addJqueryPlugin('scrollTo');
+		if ($this->context->getMobileDevice() == false)
+		{
+			// Adding CSS style sheet
+			$this->addCSS(_THEME_CSS_DIR_.'order-opc.css');
+			// Adding JS files
+			$this->addJS(_THEME_JS_DIR_.'order-opc.js');
+			$this->addJqueryPlugin('scrollTo');
+		}
+		else
+			$this->addJS(_THEME_MOBILE_JS_DIR_.'opc.js');
 		$this->addJS(_THEME_JS_DIR_.'tools/statesManagement.js');
 	}
 
@@ -294,8 +304,18 @@ class OrderOpcControllerCore extends ParentOrderController
 			$countries = Carrier::getDeliveredCountries($this->context->language->id, true, true);
 		else
 			$countries = Country::getCountries($this->context->language->id, true);
+		
+		// If a rule offer free-shipping, force hidding shipping prices
+		$free_shipping = false;
+		foreach ($this->context->cart->getCartRules() as $rule)
+			if ($rule['free_shipping'])
+			{
+				$free_shipping = true;
+				break;
+			}
 
 		$this->context->smarty->assign(array(
+			'free_shipping' => $free_shipping,
 			'isLogged' => $this->isLogged,
 			'isGuest' => isset($this->context->cookie->is_guest) ? $this->context->cookie->is_guest : 0,
 			'countries' => $countries,
@@ -428,7 +448,7 @@ class OrderOpcControllerCore extends ParentOrderController
 			return '<p class="warning">'.Tools::displayError('Error: no currency has been selected').'</p>';
 		if (!$this->context->cookie->checkedTOS && Configuration::get('PS_CONDITIONS'))
 			return '<p class="warning">'.Tools::displayError('Please accept the Terms of Service').'</p>';
-
+		
 		/* If some products have disappear */
 		if (!$this->context->cart->checkQuantities())
 			return '<p class="warning">'.Tools::displayError('An item in your cart is no longer available, you cannot proceed with your order.').'</p>';
@@ -464,8 +484,22 @@ class OrderOpcControllerCore extends ParentOrderController
 		else
 			$link_conditions .= '&content_only=1';
 		
+		// If a rule offer free-shipping, force hidding shipping prices
+		$free_shipping = false;
+		foreach ($this->context->cart->getCartRules() as $rule)
+			if ($rule['free_shipping'])
+			{
+				$free_shipping = true;
+				break;
+			}
+		
 		$carriers = $this->context->cart->simulateCarriersOutput();
+		$delivery_option = $this->context->cart->getDeliveryOption(null, false, false);
+		$wrapping_fees = (float)(Configuration::get('PS_GIFT_WRAPPING_PRICE'));
+		$wrapping_fees_tax = new Tax((int)(Configuration::get('PS_GIFT_WRAPPING_TAX')));
+		$wrapping_fees_tax_inc = $wrapping_fees * (1 + (((float)($wrapping_fees_tax->rate) / 100)));
 		$vars = array(
+			'free_shipping' => $free_shipping,
 			'checkedTOS' => (int)($this->context->cookie->checkedTOS),
 			'recyclablePackAllowed' => (int)(Configuration::get('PS_RECYCLABLE_PACK')),
 			'giftAllowed' => (int)(Configuration::get('PS_GIFT_WRAPPING')),
@@ -474,16 +508,18 @@ class OrderOpcControllerCore extends ParentOrderController
 			'link_conditions' => $link_conditions,
 			'recyclable' => (int)($this->context->cart->recyclable),
 			'gift_wrapping_price' => (float)(Configuration::get('PS_GIFT_WRAPPING_PRICE')),
+			'total_wrapping_cost' => Tools::convertPrice($wrapping_fees_tax_inc, $this->context->currency),
+			'total_wrapping_tax_exc_cost' => Tools::convertPrice($wrapping_fees, $this->context->currency),
 			'delivery_option_list' => $this->context->cart->getDeliveryOptionList(),
 			'carriers' => $carriers,
 			'checked' => $this->context->cart->simulateCarrierSelectedOutput(),
-			'delivery_option' => $this->context->cart->getDeliveryOption(null, true),
+			'delivery_option' => $delivery_option,
 			'address_collection' => $this->context->cart->getAddressCollection(),
 			'opc' => true,
 			'HOOK_BEFORECARRIER' => Hook::exec('displayBeforeCarrier', array(
 				'carriers' => $carriers,
 				'delivery_option_list' => $this->context->cart->getDeliveryOptionList(),
-				'delivery_option' => $this->context->cart->getDeliveryOption(null, true)
+				'delivery_option' => $delivery_option
 			))
 		);
 		

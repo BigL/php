@@ -20,7 +20,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 15138 $
+*  @version  Release: $Revision: 17245 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -94,6 +94,55 @@ class ContextCore
 	 * @var Smarty
 	 */
 	public $smarty;
+
+	/**
+	 * @ var Mobile Detect
+	 */
+	public $mobile_detect;
+
+	/**
+	 * @var boolean|string mobile device of the customer
+	 */
+	protected $mobile_device;
+
+	public function getMobileDevice()
+	{
+		if (is_null($this->mobile_device))
+		{
+			$this->mobile_device = false;
+			if ($this->checkMobileContext())
+			{
+				require_once(_PS_TOOL_DIR_.'mobile_Detect/Mobile_Detect.php');
+				$this->mobile_detect = new Mobile_Detect();
+				switch ((int)Configuration::get('PS_ALLOW_MOBILE_DEVICE'))
+				{
+					case 1: // Only for mobile device
+						if ($this->mobile_detect->isMobile() && !$this->mobile_detect->isTablet())
+							$this->mobile_device = true;
+						break;
+					case 2: // Only for touchpads
+						if ($this->mobile_detect->isTablet() && !$this->mobile_detect->is_mobile())
+							$this->mobile_device = true;
+						break;
+					case 3: // For touchpad or mobile devices
+						if ($this->mobile_detect->isMobile() || $this->mobile_detect->isTablet())
+							$this->mobile_device = true;
+						break;
+				}
+			}
+		}
+
+		return $this->mobile_device;
+	}
+
+	protected function checkMobileContext()
+	{
+		return isset($_SERVER['HTTP_USER_AGENT'])
+			&& isset(Context::getContext()->cookie)
+			&& (bool)Configuration::get('PS_ALLOW_MOBILE_DEVICE')
+			&& @filemtime(_PS_THEME_MOBILE_DIR_)
+			&& !Context::getContext()->cookie->no_mobile;
+	}
 
 	/**
 	 * Get a singleton context

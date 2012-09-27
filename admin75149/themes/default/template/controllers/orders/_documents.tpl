@@ -60,12 +60,12 @@
 		<td class="document_number">
 			{if get_class($document) eq 'OrderInvoice'}
 				{if isset($document->is_delivery)}
-					<a target="_blank" href="{$link->getAdminLink('AdminPdf')}&submitAction=generateDeliverySlipPDF&id_order_invoice={$document->id}">
+					<a target="_blank" href="{$link->getAdminLink('AdminPdf')|escape:'htmlall':'UTF-8'}&submitAction=generateDeliverySlipPDF&id_order_invoice={$document->id}">
 			   	{else}
-					<a target="_blank" href="{$link->getAdminLink('AdminPdf')}&submitAction=generateInvoicePDF&id_order_invoice={$document->id}">
+					<a target="_blank" href="{$link->getAdminLink('AdminPdf')|escape:'htmlall':'UTF-8'}&submitAction=generateInvoicePDF&id_order_invoice={$document->id}">
 			   {/if}
 			{elseif get_class($document) eq 'OrderSlip'}
-				<a target="_blank" href="{$link->getAdminLink('AdminPdf')}&submitAction=generateOrderSlipPDF&id_order_slip={$document->id}">
+				<a target="_blank" href="{$link->getAdminLink('AdminPdf')|escape:'htmlall':'UTF-8'}&submitAction=generateOrderSlipPDF&id_order_slip={$document->id}">
 			{/if}
 			{if get_class($document) eq 'OrderInvoice'}
 				{if isset($document->is_delivery)}
@@ -82,16 +82,18 @@
 				--
 			{else}
 				{displayPrice price=$document->total_paid_tax_incl currency=$currency->id}&nbsp;
-				{if $document->getGlobalRestPaid()}
+				{if $document->getTotalPaid()}
 					<span style="color:red;font-weight:bold;">
-					{if $document->getGlobalRestPaid() >= 0}
-						({displayPrice price=$document->getGlobalRestPaid() currency=$currency->id} {l s='not paid'})
-					{else}
-						({displayPrice price=-$document->getGlobalRestPaid() currency=$currency->id} {l s='overpaid'})
+					{if $document->getRestPaid() > 0}
+						({displayPrice price=$document->getRestPaid() currency=$currency->id} {l s='not paid'})
+					{else if $document->getRestPaid() < 0}
+						({displayPrice price=-$document->getRestPaid() currency=$currency->id} {l s='overpaid'})
 					{/if}
 					</span>
 				{/if}
 			{/if}
+		{elseif get_class($document) eq 'OrderSlip'}
+			{displayPrice price=$document->amount currency=$currency->id}
 		{/if}
 		</td>
 		<td class="right document_action">

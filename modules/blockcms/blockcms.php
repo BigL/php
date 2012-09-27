@@ -175,7 +175,7 @@ class BlockCms extends Module
 			'input' => array(
 				array(
 					'type' => 'cms_blocks',
-					'label' => $this->l('CMS Blocks :'),
+					'label' => $this->l('CMS Blocks:'),
 					'name' => 'cms_blocks',
 					'values' => array(
 						0 => BlockCMSModel::getCMSBlocksByLocation(BlockCMSModel::LEFT_COLUMN, Shop::getContextShopID()),
@@ -192,15 +192,30 @@ class BlockCms extends Module
 			),
 			'input' => array(
 				array(
+					'type' => 'checkbox',
+					'name' => 'cms_footer',
+					'values' => array(
+						'query' => array(
+							array(
+								'id' => 'on',
+								'name' => $this->l('Display various links and information in the Footer'),
+								'val' => '1'
+							),
+						),
+						'id' => 'id',
+						'name' => 'name'
+					)
+				),
+				array(
 					'type' => 'cms_pages',
-					'label' => $this->l('Footer links :'),
+					'label' => $this->l('Footer links:'),
 					'name' => 'footerBox[]',
 					'values' => BlockCMSModel::getAllCMSStructure(),
 					'desc' => $this->l('Mark all pages you want to display in the footer CMS block')
 				),
 				array(
 					'type' => 'textarea',
-					'label' => $this->l('Footer informations :'),
+					'label' => $this->l('Footer informations:'),
 					'name' => 'footer_text',
 					'rows' => 5,
 					'cols' => 60,
@@ -214,21 +229,6 @@ class BlockCms extends Module
 							array(
 								'id' => 'on',
 								'name' => $this->l('Display "Powered by Prestashop"'),
-								'val' => '1'
-							),
-						),
-						'id' => 'id',
-						'name' => 'name'
-					)
-				),
-				array(
-					'type' => 'checkbox',
-					'name' => 'cms_footer',
-					'values' => array(
-						'query' => array(
-							array(
-								'id' => 'on',
-								'name' => $this->l('Display the Footer\'s informations'),
 								'val' => '1'
 							),
 						),
@@ -346,7 +346,7 @@ class BlockCms extends Module
 				),
 				array(
 					'type' => 'cms_pages',
-					'label' => $this->l('CMS content :'),
+					'label' => $this->l('CMS content:'),
 					'name' => 'cmsBox[]',
 					'values' => BlockCMSModel::getAllCMSStructure(),
 					'desc' => $this->l('Mark all pages you want to display in this block')
@@ -565,7 +565,7 @@ class BlockCms extends Module
 						BlockCMSModel::insertCMSBlockShop($id_cms_block, $shop);
 				}
 
-				$this->_errors[] = $this->l('New block cannot be created !');
+				$this->_errors[] = $this->l('New block cannot be created!');
 			}
 			elseif (Tools::isSubmit('editBlockCMS'))
 			{
@@ -627,7 +627,7 @@ class BlockCms extends Module
 			Configuration::updateValue('FOOTER_POWEREDBY', $powered_by);
 			Configuration::updateValue('FOOTER_BLOCK_ACTIVATION', $block_activation);
 
-			$this->_html .= $this->displayConfirmation($this->l('Footer\'s informations updated'));
+			$this->_html .= $this->displayConfirmation($this->l('Footer\'s information updated'));
 		}
 		elseif (Tools::isSubmit('addBlockCMSConfirmation'))
 			$this->_html .= $this->displayConfirmation($this->l('Block CMS added'));
@@ -687,6 +687,7 @@ class BlockCms extends Module
 		$this->smarty->assign(
 			array(
 				'block' => 0,
+				'contact_url' => 'contact',
 				'cmslinks' => $cms_titles,
 				'display_stores_footer' => $display_footer,
 				'display_poweredby' => ((int)$display_poweredby === 1 || $display_poweredby === false),
@@ -740,10 +741,9 @@ class BlockCms extends Module
 	public function hookActionShopDataDuplication($params)
 	{
 		Db::getInstance()->execute('
-			INSERT INTO '._DB_PREFIX_.'cms_block_shop (id_cms_block, id_shop)
-			SELECT id_cms_block, '.(int)$params['new_id_shop'].'
-			FROM '._DB_PREFIX_.'cms_block_shop
-			WHERE id_shop = '.(int)$params['old_id_shop'].'
-		');
+		INSERT IGNORE INTO '._DB_PREFIX_.'cms_block_shop (id_cms_block, id_shop)
+		SELECT id_cms_block, '.(int)$params['new_id_shop'].'
+		FROM '._DB_PREFIX_.'cms_block_shop
+		WHERE id_shop = '.(int)$params['old_id_shop']);
 	}
 }

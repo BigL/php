@@ -175,9 +175,11 @@ class ToolsCore
 	 * @param boolean $entities
 	 * @return string host
 	 */
-	public static function getHttpHost($http = false, $entities = false)
+	public static function getHttpHost($http = false, $entities = false, $ignore_port = false)
 	{
 		$host = (isset($_SERVER['HTTP_X_FORWARDED_HOST']) ? $_SERVER['HTTP_X_FORWARDED_HOST'] : $_SERVER['HTTP_HOST']);
+		if ($ignore_port && $pos = strpos($host, ':'))
+			$host = substr($host, 0, $pos);
 		if ($entities)
 			$host = htmlspecialchars($host, ENT_COMPAT, 'UTF-8');
 		if ($http)
@@ -334,9 +336,11 @@ class ToolsCore
 		/* If language does not exist or is disabled, erase it */
 		if ($cookie->id_lang)
 		{
+			//echo $cookie->id_lang;exit;
 			$lang = new Language((int)$cookie->id_lang);
 			if (!Validate::isLoadedObject($lang) || !$lang->active || !$lang->isAssociatedToShop())
 				$cookie->id_lang = null;
+
 		}
 
 		/* Automatically detect language if not already defined */
@@ -375,16 +379,30 @@ class ToolsCore
 	{
 		if (!$context)
 			$context = Context::getContext();
+		
+		// Install call the dispatcher and so the switchLanguage
+		// Stop this method by checking the cookie
+		if (!isset($context->cookie))
+			return;
+
+		if (($iso = Tools::getValue('isolang')) && Validate::isLanguageIsoCode($iso) && ($id_lang = (int)Language::getIdByIso($iso)))
+			$_GET['id_lang'] = $id_lang;
 
 		// update language only if new id is different from old id
-		if (($id_lang = (int)Tools::getValue('id_lang')) && Validate::isUnsignedId($id_lang) && $context->cookie->id_lang != (int)$id_lang)
+		// or if default language changed
+		$cookie_id_lang = $context->cookie->id_lang;
+		$configuration_id_lang = Configuration::get('PS_LANG_DEFAULT');
+		if ((($id_lang = (int)Tools::getValue('id_lang')) && Validate::isUnsignedId($id_lang) && $cookie_id_lang != (int)$id_lang)
+			|| (($id_lang == $configuration_id_lang) && Validate::isUnsignedId($id_lang) && $id_lang != $cookie_id_lang))
 		{
 			$context->cookie->id_lang = $id_lang;
 			$language = new Language($id_lang);
 			if (Validate::isLoadedObject($language))
 				$context->language = $language;
 
-			Tools::redirect($_SERVER['REQUEST_URI']);
+			$params = $_GET;
+			if (Configuration::get('PS_REWRITING_SETTINGS') || !Language::isMultiLanguageActivated())
+				unset($params['id_lang']);
 		}
 	}
 
@@ -406,12 +424,21 @@ class ToolsCore
 		if ((int)$cookie->id_currency)
 		{
 			$currency = Currency::getCurrencyInstance((int)$cookie->id_currency);
-			if (is_object($currency) && (int)$currency->id && (int)$currency->deleted != 1 && $currency->active && $currency->isAssociatedToShop())
-				return $currency;
+			if (is_object($currency) && (int)$currency->id && (int)$currency->deleted != 1 && $currency->active)
+				if ($currency->isAssociatedToShop())
+					return $currency;
+				else
+				{
+					// get currency from context
+					$currency = Shop::getEntityIds('currency', Context::getContext()->shop->id);
+					$cookie->id_currency = $currency[0]['id_currency'];
+					return Currency::getCurrencyInstance((int)$cookie->id_currency);
+				}
 		}
 		$currency = Currency::getCurrencyInstance(Configuration::get('PS_CURRENCY_DEFAULT'));
 		if (is_object($currency) && $currency->id)
 			$cookie->id_currency = (int)$currency->id;
+
 		return $currency;
 	}
 
@@ -458,8 +485,8 @@ class ToolsCore
 		$price = Tools::ps_round($price, $c_decimals);
 		switch ($c_format)
 		{
-	 	 	/* X 0,000.00 */
-	 	 	case 1:
+			/* X 0,000.00 */
+			case 1:
 				$ret = $c_char.$blank.number_format($price, $c_decimals, '.', ',');
 				break;
 			/* 0 000,00 X*/
@@ -473,6 +500,10 @@ class ToolsCore
 			/* 0,000.00 X */
 			case 4:
 				$ret = number_format($price, $c_decimals, '.', ',').$blank.$c_char;
+				break;
+			/* 0 000.00 X  Added for the switzerland currency */
+			case 5:
+				$ret = number_format($price, $c_decimals, '.', ' ').$blank.$c_char;
 				break;
 		}
 		if ($is_negative)
@@ -942,16 +973,18 @@ class ToolsCore
 			$str = mb_strtolower($str, 'utf-8');
 
 		$str = trim($str);
+		if (!function_exists('mb_strtolower'))
+			$str = Tools::replaceAccentedChars($str);
 
 		// Remove all non-whitelist chars.
 		$str = preg_replace('/[^a-zA-Z0-9\s\'\:\/\[\]-\pL]/u', '', $str);
 		$str = preg_replace('/[\s\'\:\/\[\]-]+/', ' ', $str);
-		$str = preg_replace('/[ ]/', '-', $str);
-		$str = preg_replace('/[\/]/', '-', $str);
+		$str = str_replace(array(' ', '/'), '-', $str);
 
 		// If it was not possible to lowercase the string with mb_strtolower, we do it after the transformations.
 		// This way we lose fewer special chars.
-		$str = strtolower($str);
+		if (!function_exists('mb_strtolower'))
+			$str = strtolower($str);
 
 		return $str;
 	}
@@ -1217,7 +1250,7 @@ class ToolsCore
 
 		if (in_array(ini_get('allow_url_fopen'), array('On', 'on', '1')))
 			return @file_get_contents($url, $use_include_path, $stream_context);
-		elseif (function_exists('curl_init') && in_array(ini_get('allow_url_fopen'), array('On', 'on', '1')))
+		elseif (function_exists('curl_init'))
 		{
 			$curl = curl_init();
 			curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
@@ -1429,8 +1462,6 @@ class ToolsCore
 		// Default values for parameters
 		if (is_null($path))
 			$path = _PS_ROOT_DIR_.'/.htaccess';
-		if (is_null($rewrite_settings))
-			$rewrite_settings = (int)Configuration::get('PS_REWRITING_SETTINGS');
 		if (is_null($cache_control))
 			$cache_control = (int)Configuration::get('PS_HTACCESS_CACHE_CONTROL');
 		if (is_null($disable_multiviews))
@@ -1470,6 +1501,7 @@ class ToolsCore
 			$domains[$shop_url->domain][] = array(
 				'physical' =>	$shop_url->physical_uri,
 				'virtual' =>	$shop_url->virtual_uri,
+				'id_shop' =>	$shop_url->id_shop
 			);
 		}
 
@@ -1486,63 +1518,74 @@ class ToolsCore
 			fwrite($write_fd, "\n# Disable Multiviews\nOptions -Multiviews\n\n");
 
 		fwrite($write_fd, "RewriteEngine on\n\n");
+		// Webservice
+		fwrite($write_fd, 'RewriteRule ^api/?(.*)$ '."webservice/dispatcher.php?url=$1 [QSA,L]\n\n");
 		foreach ($domains as $domain => $list_uri)
+		{
 			foreach ($list_uri as $uri)
+			{
+				$rewrite_settings = (int)Configuration::get('PS_REWRITING_SETTINGS', null, null, (int)$uri['id_shop']);
+				$domain_rewrite_cond = 'RewriteCond %{HTTP_HOST} ^'.$domain.'$'."\n";
 				// Rewrite virtual multishop uri
 				if ($uri['virtual'])
 				{
 					if (!$rewrite_settings)
 					{
-						fwrite($write_fd, 'RewriteCond %{HTTP_HOST} ^'.$domain.'$'."\n");
+						fwrite($write_fd, $domain_rewrite_cond);
 						fwrite($write_fd, 'RewriteRule ^'.trim($uri['virtual'], '/').'/?$ '.$uri['physical'].$uri['virtual']."index.php [L,R]\n");
 					}
 					else
 					{
-						fwrite($write_fd, 'RewriteCond %{HTTP_HOST} ^'.$domain.'$'."\n");
+						fwrite($write_fd, $domain_rewrite_cond);
 						fwrite($write_fd, 'RewriteRule ^'.trim($uri['virtual'], '/').'$ '.$uri['physical'].$uri['virtual']." [L,R]\n");
 					}
-					fwrite($write_fd, 'RewriteCond %{HTTP_HOST} ^'.$domain.'$'."\n");
+					fwrite($write_fd, $domain_rewrite_cond);
 					fwrite($write_fd, 'RewriteRule ^'.ltrim($uri['virtual'], '/').'(.*) '.$uri['physical']."$1 [L]\n\n");
 				}
 
-		// Webservice
-		fwrite($write_fd, 'RewriteRule ^api/?(.*)$ '."webservice/dispatcher.php?url=$1 [QSA,L]\n\n");
-
-		if ($rewrite_settings)
-		{
-			// Compatibility with the old image filesystem
-			fwrite($write_fd, "# Images\n");
-			if (Configuration::get('PS_LEGACY_IMAGES'))
-			{
-				fwrite($write_fd, 'RewriteRule ^([a-z0-9]+)\-([a-z0-9]+)(\-[_a-zA-Z0-9-]*)(-[0-9]+)?/.+\.jpg$ '._PS_PROD_IMG_.'$1-$2$3$4.jpg [L]'."\n");
-				fwrite($write_fd, 'RewriteRule ^([0-9]+)\-([0-9]+)(-[0-9]+)?/.+\.jpg$ '._PS_PROD_IMG_.'$1-$2$3.jpg [L]'."\n");
-			}
-
-			// Rewrite product images < 100 millions
-			for ($i = 1; $i <= 8; $i++)
-			{
-				$img_path = $img_name = '';
-				for ($j = 1; $j <= $i; $j++)
+				if ($rewrite_settings)
 				{
-					$img_path .= '$'.$j.'/';
-					$img_name .= '$'.$j;
-				}
-				$img_name .= '$'.$j;
-				fwrite($write_fd, 'RewriteRule ^'.str_repeat('([0-9])', $i).'(\-[_a-zA-Z0-9-]*)?(-[0-9]+)?/.+\.jpg$ '._PS_PROD_IMG_.$img_path.$img_name.'$'.($j + 1).".jpg [L]\n");
-			}
-			fwrite($write_fd, 'RewriteRule ^c/([0-9]+)(\-[_a-zA-Z0-9-\.*]*)(-[0-9]+)?/.+\.jpg$ img/c/$1$2$3.jpg [L]'."\n");
-			fwrite($write_fd, 'RewriteRule ^c/([a-zA-Z-]+)(-[0-9]+)?/.+\.jpg$ img/c/$1$2.jpg [L]'."\n");
-		}
+					// Compatibility with the old image filesystem
+					fwrite($write_fd, "# Images\n");
+					if (Configuration::get('PS_LEGACY_IMAGES'))
+					{
+						fwrite($write_fd, $domain_rewrite_cond);
+						fwrite($write_fd, 'RewriteRule ^([a-z0-9]+)\-([a-z0-9]+)(\-[_a-zA-Z0-9-]*)(-[0-9]+)?/.+\.jpg$ '._PS_PROD_IMG_.'$1-$2$3$4.jpg [L]'."\n");
+						fwrite($write_fd, $domain_rewrite_cond);
+						fwrite($write_fd, 'RewriteRule ^([0-9]+)\-([0-9]+)(-[0-9]+)?/.+\.jpg$ '._PS_PROD_IMG_.'$1-$2$3.jpg [L]'."\n");
+					}
 
-		// Redirections to dispatcher
-		if ($rewrite_settings)
-		{
-			fwrite($write_fd, "\n# Dispatcher\n");
-			fwrite($write_fd, "RewriteCond %{REQUEST_FILENAME} -s [OR]\n");
-			fwrite($write_fd, "RewriteCond %{REQUEST_FILENAME} -l [OR]\n");
-			fwrite($write_fd, "RewriteCond %{REQUEST_FILENAME} -d\n");
-			fwrite($write_fd, "RewriteRule ^.*$ - [NC,L]\n");
-			fwrite($write_fd, "RewriteRule ^.*\$ index.php [NC,L]\n");
+					// Rewrite product images < 100 millions
+					for ($i = 1; $i <= 8; $i++)
+					{
+						$img_path = $img_name = '';
+						for ($j = 1; $j <= $i; $j++)
+						{
+							$img_path .= '$'.$j.'/';
+							$img_name .= '$'.$j;
+						}
+						$img_name .= '$'.$j;
+						fwrite($write_fd, $domain_rewrite_cond);
+						fwrite($write_fd, 'RewriteRule ^'.str_repeat('([0-9])', $i).'(\-[_a-zA-Z0-9-]*)?(-[0-9]+)?/.+\.jpg$ '._PS_PROD_IMG_.$img_path.$img_name.'$'.($j + 1).".jpg [L]\n");
+					}
+					fwrite($write_fd, $domain_rewrite_cond);
+					fwrite($write_fd, 'RewriteRule ^c/([0-9]+)(\-[_a-zA-Z0-9-\.*]*)(-[0-9]+)?/.+\.jpg$ img/c/$1$2$3.jpg [L]'."\n");
+					fwrite($write_fd, $domain_rewrite_cond);
+					fwrite($write_fd, 'RewriteRule ^c/([a-zA-Z-]+)(-[0-9]+)?/.+\.jpg$ img/c/$1$2.jpg [L]'."\n");
+				}
+			}
+			// Redirections to dispatcher
+			if ($rewrite_settings)
+			{
+				fwrite($write_fd, "\n# Dispatcher\n");
+				fwrite($write_fd, "RewriteCond %{REQUEST_FILENAME} -s [OR]\n");
+				fwrite($write_fd, "RewriteCond %{REQUEST_FILENAME} -l [OR]\n");
+				fwrite($write_fd, "RewriteCond %{REQUEST_FILENAME} -d\n");
+				fwrite($write_fd, $domain_rewrite_cond);
+				fwrite($write_fd, "RewriteRule ^.*$ - [NC,L]\n");
+				fwrite($write_fd, $domain_rewrite_cond);
+				fwrite($write_fd, "RewriteRule ^.*\$ index.php [NC,L]\n");
+			}
 		}
 
 		fwrite($write_fd, "</IfModule>\n\n");
@@ -1746,38 +1789,38 @@ FileETag INode MTime Size
 		if (function_exists('property_exists'))
 			return property_exists($class, $property);
 
-        if (is_object($class))
-            $vars = get_object_vars($class);
-        else
-            $vars = get_class_vars($class);
+		if (is_object($class))
+			$vars = get_object_vars($class);
+		else
+			$vars = get_class_vars($class);
 
-        return array_key_exists($property, $vars);
+		return array_key_exists($property, $vars);
 	}
 
 	/**
-     * @desc identify the version of php
-     * @return string
-     */
-    public static function checkPhpVersion()
-    {
-    	$version = null;
+	 * @desc identify the version of php
+	 * @return string
+	 */
+	public static function checkPhpVersion()
+	{
+		$version = null;
 
-    	if (defined('PHP_VERSION'))
-    		$version = PHP_VERSION;
-    	else
-    		$version  = phpversion('');
+		if (defined('PHP_VERSION'))
+			$version = PHP_VERSION;
+		else
+			$version  = phpversion('');
 
 		//Case management system of ubuntu, php version return 5.2.4-2ubuntu5.2
-    	if (strpos($version, '-') !== false)
+		if (strpos($version, '-') !== false)
 			$version  = substr($version, 0, strpos($version, '-'));
 
-        return $version;
+		return $version;
 	}
 
-    /**
-     * @desc try to open a zip file in order to check if it's valid
-     * @return bool success
-     */
+	/**
+	 * @desc try to open a zip file in order to check if it's valid
+	 * @return bool success
+	 */
 	public static function ZipTest($from_file)
 	{
 		if (class_exists('ZipArchive', false))
@@ -2092,6 +2135,22 @@ FileETag INode MTime Size
 		return $filtered_files;
 	}
 
+
+	/**
+	 * Align version sent and use internal function
+	 *
+	 * @static
+	 * @param $v1
+	 * @param $v2
+	 * @param string $operator
+	 * @return mixed
+	 */
+	public static function version_compare($v1, $v2, $operator = '<')
+	{
+		Tools::alignVersionNumber($v1, $v2);
+		return version_compare($v1, $v2, $operator);
+	}
+
 	/**
 	 * Align 2 version with the same number of sub version
 	 * version_compare will work better for its comparison :)
@@ -2124,7 +2183,11 @@ FileETag INode MTime Size
 
 	public static function modRewriteActive()
 	{
-		return Tools::apacheModExists('mod_rewrite');
+		if (Tools::apacheModExists('mod_rewrite'))
+			return true;
+		if ((isset($_SERVER['HTTP_MOD_REWRITE']) && strtolower($_SERVER['HTTP_MOD_REWRITE']) == 'on') || strtolower(getenv('HTTP_MOD_REWRITE')) == 'on')
+				return true;
+		return false;
 	}
 
 	public static function unSerialize($serialized, $object = false)
@@ -2134,15 +2197,28 @@ FileETag INode MTime Size
 
 		return false;
 	}
+	
+	/**
+	 * Reproduce array_unique working before php version 5.2.9 
+	 * @param array $array
+	 * @return array
+	 */
+	public static function arrayUnique($array)
+	{
+		if (version_compare(phpversion(), '5.2.9', '<'))
+			return array_unique($array);
+		else
+			return array_unique($array, SORT_REGULAR);
+	}
 }
 
 /**
-* Compare 2 prices to sort products
-*
-* @param float $a
-* @param float $b
-* @return integer
-*/
+ * Compare 2 prices to sort products
+ *
+ * @param float $a
+ * @param float $b
+ * @return integer
+ */
 /* Externalized because of a bug in PHP 5.1.6 when inside an object */
 function cmpPriceAsc($a, $b)
 {

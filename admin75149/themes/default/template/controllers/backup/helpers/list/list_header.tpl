@@ -28,6 +28,16 @@
 
 {block name="override_header"}
 
+	{if isset($backup_url) && isset($backup_weight)}
+		<fieldset>
+			<legend><img src="../img/admin/AdminBackup.gif" alt="" class="icon" /> {l s='Download'}</legend>
+			<p style="font-size: 13px;">
+				<a href="{$backup_url}"><img src="../img/admin/AdminBackup.gif" alt="" class="icon" /></a>
+				<b><a href="{$backup_url}">{l s='Download the Backup file'} ({$backup_weight}{l s='MB'})</a></b><br /><br />
+				{l s='Tip: You can also download this file over your FTP. Backup files are located in "admin/backups" directory.'}</p>
+		</fieldset><br /><br />
+	{/if}
+
 	<div class="error width1" style="float: left; margin-right: 10px;">
 		<p>{l s='Disclaimer before creating a new Backup'}</p>
 		<ol style="font-size: 11px; font-weight: normal; line-height: 20px; padding-left: 10px;">
@@ -52,7 +62,7 @@
 	<div class="warn width2" style="float: left;">
 		<p>{l s='How to restore a database Backup in 10 easy steps:'}</p>
 		<ol style="font-size: 11px; font-weight: normal; line-height: 20px;">
-			<li>{l s='Set "Enable Shop" to "No" in the Preferences > Maintenance tab.'}</li>
+			<li>{l s='Set "Enable Shop" to "No" in the "Maintenance" page under the "Preferences" menu.'}</li>
 			<li>{l s='Download the Backup from the list below or from your FTP server (in the folder "admin/backups").'}</li>
 			<li>{l s='Check the Backup integrity: look for errors, incomplete file, etc. Be sure to verify all your data.'}</li>
 			<li>{l s='Ask your hosting provider for "phpMyAdmin" access to your database'}</li>

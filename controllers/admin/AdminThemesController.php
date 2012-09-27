@@ -39,12 +39,13 @@ class AdminThemesControllerCore extends AdminController
 	 * @static
 	 */
 	public static $check_features = array(
-		'ccc' => array( // feature key name
+		'ccc' => array(
 			'attributes' => array(
 				'available' => array(
-					'value' => 'true', // accepted attribute value
-					// if value doesnt match,
-					// prestashop configuration value must have thoses values
+					'value' => 'true',
+					/*
+					 * accepted attribute value if value doesnt match, prestashop configuration value must have thoses values
+					*/
 					'check_if_not_valid' => array(
 						'PS_CSS_THEME_CACHE' => 0,
 						'PS_JS_THEME_CACHE' => 0,
@@ -95,6 +96,10 @@ class AdminThemesControllerCore extends AdminController
 
 	public function init()
 	{
+		// No cache for auto-refresh uploaded logo
+		header('Cache-Control: no-cache, must-revalidate');
+		header('Expires: Mon, 26 Jul 1997 05:00:00 GMT');
+
 		parent::init();
 
 		$this->can_display_themes = (!Shop::isFeatureActive() || Shop::getContext() == Shop::CONTEXT_SHOP) ? true : false;
@@ -160,9 +165,22 @@ class AdminThemesControllerCore extends AdminController
 						'type' => 'text',
 						'size' => 20
 					),
+					'PS_ALLOW_MOBILE_DEVICE' => array(
+						'title' => $this->l('Enable mobile theme'),
+						'desc' => $this->l('Allows visitors browsing on a mobile device or on a touchpad, to have a light version of website'),
+						'type' => 'radio',
+						'required' => true,
+						'validation' => 'isGenericName',
+						'choices' => array(
+							0 => $this->l('I want disable it'),
+							1 => $this->l('I want enable it only on mobiles devices'),
+							2 => $this->l('I want enable it only on touchpads'),
+							3 => $this->l('I want enable it on mobiles and touchpads devices')
+						)
+					)
 				),
 				'submit' => array('title' => $this->l('Save'), 'class' => 'button')
-			),
+			)
 		);
 
 		$this->fields_list = array(
@@ -304,18 +322,22 @@ class AdminThemesControllerCore extends AdminController
 	{
 		$new_dir = Tools::getValue('directory');
 		$res = true;
-		if (Validate::isDirName($new_dir) && !is_dir(_PS_ALL_THEMES_DIR_.$new_dir))
+
+		if ($new_dir != '')
 		{
-			$res &= mkdir(_PS_ALL_THEMES_DIR_.$new_dir, Theme::$access_rights);
-			if ($res)
-				$this->confirmations[] = $this->l('Directory successfully created');
-		}
-	
-		if (0 !== $id_based = (int)Tools::getValue('based_on'))
-		{
-			$base_theme = new Theme($id_based);
-			$res = $this->copyTheme($base_theme->directory, $new_dir);
-			$base_theme = new Theme((int)Tools::getValue('based_on'));
+			if (Validate::isDirName($new_dir) && !is_dir(_PS_ALL_THEMES_DIR_.$new_dir))
+			{
+				$res &= mkdir(_PS_ALL_THEMES_DIR_.$new_dir, Theme::$access_rights);
+				if ($res)
+					$this->confirmations[] = $this->l('Directory successfully created');
+			}
+
+			if (0 !== $id_based = (int)Tools::getValue('based_on'))
+			{
+				$base_theme = new Theme($id_based);
+				$res = $this->copyTheme($base_theme->directory, $new_dir);
+				$base_theme = new Theme((int)Tools::getValue('based_on'));
+			}
 		}
 
 		return parent::processAdd();
@@ -339,12 +361,9 @@ class AdminThemesControllerCore extends AdminController
 		if (file_exists(_PS_IMG_DIR_.'logo.jpg'))
 		{
 			list($width, $height, $type, $attr) = getimagesize(_PS_IMG_DIR_.Configuration::get('PS_LOGO'));
-			Configuration::updateValue('SHOP_LOGO_WIDTH', (int)round($width));
 			Configuration::updateValue('SHOP_LOGO_HEIGHT', (int)round($height));
+			Configuration::updateValue('SHOP_LOGO_WIDTH', (int)round($width));
 		}
-		// No cache for auto-refresh uploaded logo
-		header('Cache-Control: no-cache, must-revalidate');
-		header('Expires: Mon, 26 Jul 1997 05:00:00 GMT');
 
 		$this->content .= $content;
 		return parent::initContent();
@@ -528,12 +547,21 @@ class AdminThemesControllerCore extends AdminController
 			if (!$tmp_name || !move_uploaded_file($_FILES[$field_name]['tmp_name'], $tmp_name))
 				return false;
 
-			$logo_name = $logo_prefix.'-'.(int)$id_shop.'.jpg';
-			if (($id_shop == Configuration::get('PS_SHOP_DEFAULT') || $id_shop == 0))
-				$logo_name = $logo_prefix.'.jpg';
+			$ext = ($field_name == 'PS_STORES_ICON') ? '.gif' : '.jpg';
+			$logo_name = $logo_prefix.'-'.(int)$id_shop.$ext;
+			if (Context::getContext()->shop->getContext() == Shop::CONTEXT_ALL || $id_shop == 0)
+				$logo_name = $logo_prefix.$ext;
 
-			if (!@ImageManager::resize($tmp_name, _PS_IMG_DIR_.$logo_name))
-				$this->errors[] = Tools::displayError('An error occurred during logo copy.');
+			if ($field_name == 'PS_STORES_ICON')
+			{
+				if (!@ImageManager::resize($tmp_name, _PS_IMG_DIR_.$logo_name, null, null, 'gif', true))
+					$this->errors[] = Tools::displayError('An error occurred during logo copy.');
+			}
+			else
+			{
+				if (!@ImageManager::resize($tmp_name, _PS_IMG_DIR_.$logo_name))
+					$this->errors[] = Tools::displayError('An error occurred during logo copy.');
+			}
 
 			Configuration::updateValue($field_name, $logo_name);
 			$this->fields_options['appearance']['fields'][$field_name]['thumb'] = _PS_IMG_.$logo_name.'?date='.time();

@@ -25,8 +25,8 @@
 *  International Registered Trademark & Property of PrestaShop SA
 */
 
-if (file_exists(dirname(__FILE__).'/../config/settings.inc.php'))
-	include_once(dirname(__FILE__).'/../config/settings.inc.php');
+if (file_exists(dirname(__FILE__).'/../../config/settings.inc.php'))
+	include_once(dirname(__FILE__).'/../../config/settings.inc.php');
 
 abstract class DbCore
 {
@@ -322,7 +322,7 @@ abstract class DbCore
 	 */
 	public function insert($table, $data, $null_values = false, $use_cache = true, $type = Db::INSERT, $add_prefix = true)
 	{
-		if (!$data)
+		if (!$data && !$null_values)
 			return true;
 
 		if ($add_prefix)
@@ -596,7 +596,10 @@ abstract class DbCore
 
 		$errno = $this->getNumberError();
 		if ($webservice_call && $errno)
-			WebserviceRequest::getInstance()->setError(500, '[SQL Error] '.$this->getMsgError().'. Query was : '.$sql, 97);
+		{
+			$dbg = debug_backtrace();
+			WebserviceRequest::getInstance()->setError(500, '[SQL Error] '.$this->getMsgError().'. From '.(isset($dbg[3]['class']) ? $dbg[3]['class'] : '').'->'.$dbg[3]['function'].'() Query was : '.$sql, 97);
+		}
 		else if (_PS_DEBUG_SQL_ && $errno && !defined('PS_INSTALLATION_IN_PROGRESS'))
 		{
 			if ($sql)
@@ -637,9 +640,9 @@ abstract class DbCore
 	 * @param bool $engine
 	 * @return int
 	 */
-	public static function checkConnection($server, $user, $pwd, $db, $new_db_link = true, $engine = null)
+	public static function checkConnection($server, $user, $pwd, $db, $new_db_link = true, $engine = null, $timeout = 5)
 	{
-		return call_user_func_array(array(Db::getClass(), 'tryToConnect'), array($server, $user, $pwd, $db, $new_db_link, $engine));
+		return call_user_func_array(array(Db::getClass(), 'tryToConnect'), array($server, $user, $pwd, $db, $new_db_link, $engine, $timeout));
 	}
 
 	/**

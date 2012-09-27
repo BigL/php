@@ -178,7 +178,7 @@ class AdminCustomerThreadsControllerCore extends AdminController
 					),
 					'PS_SAV_IMAP_DELETE_MSG' => array(
 						'title' => $this->l('Delete messages'),
-						'desc' => $this->l('Delete message after sync. If you do not active this option, the sync will be longer'),
+						'desc' => $this->l('Delete messages after sync. If you do not active this option, the sync will be longer'),
 						'type' => 'bool',
 						'visibility' => Shop::CONTEXT_ALL,
 					),
@@ -215,7 +215,7 @@ class AdminCustomerThreadsControllerCore extends AdminController
 					'PS_SAV_IMAP_OPT_NOTLS' => array(
 						'title' => $this->l('IMAP options').' (/notls)',
 						'type' => 'bool',
-						'desc' => $this->l('do not use start-TLS to encrypt the session, even with servers that support it'),
+						'desc' => $this->l('Do not use start-TLS to encrypt the session, even with servers that support it'),
 						'visibility' => Shop::CONTEXT_ALL,
 					),
 				),
@@ -349,6 +349,7 @@ class AdminCustomerThreadsControllerCore extends AdminController
 						$current_employee->firstname.' '.$current_employee->lastname,
 						null, null, _PS_MAIL_DIR_, true))
 					{
+						$cm->private = 1;
 						$cm->message = $this->l('Message forwarded to').' '.$employee->firstname.' '.$employee->lastname."\n".$this->l('Comment:').' '.$_POST['message_forward'];
 						$cm->add();
 					}
@@ -381,7 +382,7 @@ class AdminCustomerThreadsControllerCore extends AdminController
 				$cm = new CustomerMessage();
 				$cm->id_employee = (int)$this->context->employee->id;
 				$cm->id_customer_thread = $ct->id;
-				$cm->message = Tools::htmlentitiesutf8(Tools::nl2br(Tools::getValue('reply_message')));
+				$cm->message = Tools::nl2br(Tools::htmlentitiesutf8(Tools::getValue('reply_message')));
 				$cm->ip_address = ip2long($_SERVER['REMOTE_ADDR']);
 				if (isset($_FILES) && !empty($_FILES['joinFile']['name']) && $_FILES['joinFile']['error'] != 0)
 					$this->errors[] = Tools::displayError('An error occurred with the file upload.');
@@ -652,6 +653,12 @@ class AdminCustomerThreadsControllerCore extends AdminController
 		if (!$this->errors && $value)
 			Configuration::updateValue('PS_SAV_IMAP_OPT', implode('', $value));
 	}
-
+	
+	public function ajaxProcessMarkAsRead()
+	{
+		$id_thread = Tools::getValue('id_thread');
+		$messages = CustomerThread::getMessageCustomerThreads($id_thread);		
+		if (count($messages))
+			Db::getInstance()->execute('UPDATE '._DB_PREFIX_.'customer_message set `read` = 1');
+	}
 }
-

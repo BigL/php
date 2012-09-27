@@ -36,6 +36,7 @@ class AdminWarehousesControllerCore extends AdminController
 	 	$this->className = 'Warehouse';
 		$this->deleted = true;
 		$this->lang = false;
+		$this->multishop_context = Shop::CONTEXT_ALL;
 
 		$this->fields_list = array(
 			'reference'	=> array(
@@ -80,10 +81,6 @@ class AdminWarehousesControllerCore extends AdminController
 	 */
 	public function renderList()
 	{
-		// Checks access
-		if (!($this->tabAccess['add'] === '1'))
-			unset($this->toolbar_btn['new']);
-
 		// removes links on rows
 		$this->list_no_link = true;
 
@@ -145,7 +142,7 @@ class AdminWarehousesControllerCore extends AdminController
 		// sets the fields of the form
 		$this->fields_form = array(
 			'legend' => array(
-				'title' => $this->l('Warehouse informations'),
+				'title' => $this->l('Warehouse information'),
 				'image' => '../img/admin/edit.gif'
 			),
 			'input' => array(
@@ -198,7 +195,7 @@ class AdminWarehousesControllerCore extends AdminController
 				),
 				array(
 					'type' => 'text',
-					'label' => $this->l('Postcode / Zip Code:'),
+					'label' => $this->l('Postcode/Zip Code:'),
 					'name' => 'postcode',
 					'size' => 10,
 					'maxlength' => 12,
@@ -273,6 +270,7 @@ class AdminWarehousesControllerCore extends AdminController
 				'label' => $this->l('Shops:'),
 				'name' => 'checkBoxShopAsso',
 				'desc' => $this->l('Associated shops'),
+				'disable_shared' => Shop::SHARE_STOCK
 			);
 		}
 
@@ -306,14 +304,7 @@ class AdminWarehousesControllerCore extends AdminController
 				),
 				'desc' => $this->l('Inventory valuation method')
 			);
-
-			//get currencies list
-			$currencies = Currency::getCurrencies();
-			$id_default_currency = Configuration::get('PS_CURRENCY_DEFAULT');
-			$default_currency = Currency::getCurrency($id_default_currency);
-			if ($default_currency)
-				$currencies = array_merge(array($default_currency, '-'), $currencies);
-
+			
 			// adds input valuation currency
 			$this->fields_form['input'][] = array(
 				'type' => 'select',
@@ -322,7 +313,7 @@ class AdminWarehousesControllerCore extends AdminController
 				'name' => 'id_currency',
 				'required' => true,
 				'options' => array(
-					'query' => $currencies,
+					'query' => Currency::getCurrencies(),
 					'id' => 'id_currency',
 					'name' => 'name'
 				)
@@ -382,6 +373,9 @@ class AdminWarehousesControllerCore extends AdminController
 		$this->fields_value['ids_shops[]'] = $ids_shop;
 		$this->fields_value['ids_carriers[]'] = $carriers;
 
+		if (!Validate::isLoadedObject($obj))
+			$this->fields_value['id_currency'] = (int)Configuration::get('PS_CURRENCY_DEFAULT');
+
 		return parent::renderForm();
 	}
 
@@ -435,10 +429,6 @@ class AdminWarehousesControllerCore extends AdminController
 			$address->save();
 		}
 
-		// handles shops associations
-		if (Tools::isSubmit('ids_shops'))
-			$object->setShops(Tools::getValue('ids_shops'));
-
 		// handles carriers associations
 		if (Tools::isSubmit('ids_carriers'))
 			$object->setCarriers(Tools::getValue('ids_carriers'));
@@ -476,17 +466,25 @@ class AdminWarehousesControllerCore extends AdminController
 			}
 		}
 	}
-
-	/**
-	 * Checks access of the employee
-	 */
-	public function processCheckAccess()
+	
+	public function initContent()
 	{
-		if (Tools::isSubmit('submitAdd'.$this->table) && !($this->tabAccess['add'] === '1'))
+		if (!Configuration::get('PS_ADVANCED_STOCK_MANAGEMENT'))
 		{
-			$this->errors[] = Tools::displayError('You do not have the required permissions to add warehouses.');
-			return parent::postProcess();
+			$this->warnings[md5('PS_ADVANCED_STOCK_MANAGEMENT')] = $this->l('You need to activate advanced stock management prior to use this feature.');
+			return false;
 		}
+		parent::initContent();
+	}
+	
+	public function initProcess()
+	{
+		if (!Configuration::get('PS_ADVANCED_STOCK_MANAGEMENT'))
+		{
+			$this->warnings[md5('PS_ADVANCED_STOCK_MANAGEMENT')] = $this->l('You need to activate advanced stock management prior to use this feature.');
+			return false;
+		}
+		parent::initProcess();	
 	}
 
 	/**
@@ -499,49 +497,53 @@ class AdminWarehousesControllerCore extends AdminController
 			if (!($obj = $this->loadObject(true)))
 					return;
 
-			// updates/creates address if it does not exist
-			if (Tools::isSubmit('id_address') && (int)Tools::getValue('id_address') > 0)
-				$address = new Address((int)Tools::getValue('id_address')); // updates address
-			else
-				$address = new Address(); // creates address
-
-			// sets the address
-			$address->alias = Tools::getValue('reference', null);
-			$address->lastname = 'warehouse'; // skip problem with numeric characters in warehouse name
-			$address->firstname = 'warehouse'; // skip problem with numeric characters in warehouse name
-			$address->address1 = Tools::getValue('address', null);
-			$address->address2 = Tools::getValue('address2', null);
-			$address->postcode = Tools::getValue('postcode', null);
-			$address->phone = Tools::getValue('phone', null);
-			$address->id_country = Tools::getValue('id_country', null);
-			$address->id_state = Tools::getValue('id_state', null);
-			$address->city = Tools::getValue('city', null);
-
-			// validates the address
-			$validation = $address->validateController();
-
-			// checks address validity
-			if (count($validation) > 0) // if not valid
-			{
-				foreach ($validation as $item)
-					$this->errors[] = $item;
-				$this->errors[] = Tools::displayError('The address is not correct. Check if all required fields are filled.');
-			}
-			else // valid
-			{
-				if (Tools::isSubmit('id_address') && Tools::getValue('id_address') > 0)
-					$address->update();
-				else
-				{
-					$address->save();
-					$_POST['id_address'] = $address->id;
-				}
-			}
-
+			$this->updateAddress();
+			
 			// hack for enable the possibility to update a warehouse without recreate new id
 			$this->deleted = false;
 
 			return parent::processAdd();
+		}
+	}
+	
+	protected function updateAddress()
+	{
+		// updates/creates address if it does not exist
+		if (Tools::isSubmit('id_address') && (int)Tools::getValue('id_address') > 0)
+			$address = new Address((int)Tools::getValue('id_address')); // updates address
+		else
+			$address = new Address(); // creates address
+			// sets the address
+		$address->alias = Tools::getValue('reference', null);
+		$address->lastname = 'warehouse'; // skip problem with numeric characters in warehouse name
+		$address->firstname = 'warehouse'; // skip problem with numeric characters in warehouse name
+		$address->address1 = Tools::getValue('address', null);
+		$address->address2 = Tools::getValue('address2', null);
+		$address->postcode = Tools::getValue('postcode', null);
+		$address->phone = Tools::getValue('phone', null);
+		$address->id_country = Tools::getValue('id_country', null);
+		$address->id_state = Tools::getValue('id_state', null);
+		$address->city = Tools::getValue('city', null);
+
+		// validates the address
+		$validation = $address->validateController();
+
+		// checks address validity
+		if (count($validation) > 0) // if not valid
+		{
+			foreach ($validation as $item)
+				$this->errors[] = $item;
+			$this->errors[] = Tools::displayError('The address is not correct. Check if all required fields are filled.');
+		}
+		else // valid
+		{
+			if (Tools::isSubmit('id_address') && Tools::getValue('id_address') > 0)
+				$address->update();
+			else
+			{
+				$address->save();
+				$_POST['id_address'] = $address->id;
+			}
 		}
 	}
 
@@ -568,7 +570,6 @@ class AdminWarehousesControllerCore extends AdminController
 
 				// removes associations with carriers/shops/products location
 				$obj->setCarriers(array());
-				$obj->setShops(array());
 				$obj->resetProductsLocations();
 
 				return parent::processDelete();
@@ -584,26 +585,19 @@ class AdminWarehousesControllerCore extends AdminController
 		// loads object
 		if (!($obj = $this->loadObject(true)))
 			return;
-
-		// handles shops associations
-		if (Tools::isSubmit('ids_shops'))
-			$obj->setShops(Tools::getValue('ids_shops'));
-
+		$this->updateAddress();
 		// handles carriers associations
 		$obj->setCarriers(Tools::getValue('ids_carriers'), array());
 
 		return parent::processUpdate();
 	}
 
-	/**
-	 * @see AdminController::initProcess()
-	 */
-	public function initProcess()
+	protected function updateAssoShop($id_object)
 	{
-		// checks access
-		$this->processCheckAccess();
-
-		return parent::initprocess();
+		parent::updateAssoShop($id_object);
+		if (!($obj = $this->loadObject(true)))
+			return;
+		$obj->resetStockAvailable();
 	}
 
 }

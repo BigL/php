@@ -29,9 +29,9 @@ class AdminStatesControllerCore extends AdminController
 {
 	public function __construct()
 	{
-	 	$this->table = 'state';
+		$this->table = 'state';
 		$this->className = 'State';
-	 	$this->lang = false;
+		$this->lang = false;
 		$this->requiredDatabase = true;
 
 		$this->addRowAction('edit');
@@ -86,10 +86,10 @@ class AdminStatesControllerCore extends AdminController
 	public function renderList()
 	{
 		$this->_select = 'z.`name` AS zone';
-	 	$this->_join = 'LEFT JOIN `'._DB_PREFIX_.'zone` z ON (z.`id_zone` = a.`id_zone`)';
+		$this->_join = 'LEFT JOIN `'._DB_PREFIX_.'zone` z ON (z.`id_zone` = a.`id_zone`)';
 
 				$this->tpl_list_vars['zones'] = Zone::getZones();
-	 	return parent::renderList();
+		return parent::renderList();
 	}
 
 	public function renderForm()
@@ -223,7 +223,7 @@ class AdminStatesControllerCore extends AdminController
 						}
 					}
 					else
-						$this->errors[] = Tools::displayError('This state is currently in use');
+						$this->errors[] = Tools::displayError('This state was used in at least one address, it cannot be removed');
 				}
 				else
 					$this->errors[] = Tools::displayError('An error occurred while deleting object.').' <b>'.$this->table.'</b> '.Tools::displayError('(cannot load object)');

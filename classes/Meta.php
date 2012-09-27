@@ -56,7 +56,7 @@ class MetaCore extends ObjectModel
 	public static function getPages($exclude_filled = false, $add_page = false)
 	{
 		$selected_pages = array();
-		if (!$files = scandir(_PS_ROOT_DIR_.'/controllers/front/'))
+		if (!$files = Tools::scandir(_PS_ROOT_DIR_.'/controllers/front/', 'php', '', true))
 			die(Tools::displayError('Cannot scan root directory'));
 
 		// Exclude pages forbidden
@@ -68,6 +68,8 @@ class MetaCore extends ObjectModel
 		foreach ($files as $file)
 			if ($file != 'index.php' && preg_match('/^[a-z0-9_.-]*\.php$/i', $file) && !in_array(strtolower(str_replace('Controller.php', '', $file)), $exlude_pages))
 				$selected_pages[strtolower(str_replace('Controller.php', '', $file))] = strtolower(str_replace('Controller.php', '', $file));
+			else if ($file != 'index.php' && preg_match('/^([a-z0-9_.-]*\/)?[a-z0-9_.-]*\.php$/i', $file) && !in_array(strtolower(str_replace('Controller.php', '', $file)), $exlude_pages))
+				$selected_pages[strtolower(sprintf(Tools::displayError('%1$s (in %2$s)'), dirname($file), str_replace('Controller.php', '', basename($file))))] = strtolower(str_replace('Controller.php', '', basename($file)));
 
 		// Add modules controllers to list (this function is cool !)
 		foreach (glob(_PS_MODULE_DIR_.'*/controllers/front/*.php') as $file)
@@ -125,7 +127,7 @@ class MetaCore extends ObjectModel
 		$sql = 'SELECT *
 				FROM '._DB_PREFIX_.'meta m
 				LEFT JOIN '._DB_PREFIX_.'meta_lang ml on (m.id_meta = ml.id_meta)
-				WHERE m.page = \''.pSQL($page).'\'
+				WHERE (m.page = \''.pSQL($page).'\' OR m.page=\''.str_replace('-', '', strtolower($page)).'\')
 					AND ml.id_lang = '.(int)$id_lang
 					.Shop::addSqlRestrictionOnLang('ml');
 		return Db::getInstance(_PS_USE_SQL_SLAVE_)->getRow($sql);
@@ -182,21 +184,19 @@ class MetaCore extends ObjectModel
 	public static function getMetaTags($id_lang, $page_name, $title = '')
 	{
 		global $maintenance;
-
-		$page_name = str_replace('-', '', strtolower($page_name));
 		if (!(isset($maintenance) && (!in_array(Tools::getRemoteAddr(), explode(',', Configuration::get('PS_MAINTENANCE_IP'))))))
 		{
-			if ($id_product = Tools::getValue('id_product'))
+			if ($page_name == 'product' && ($id_product = Tools::getValue('id_product')))
 				return Meta::getProductMetas($id_product, $id_lang, $page_name);
-			else if ($id_category = Tools::getValue('id_category'))
+			elseif ($page_name == 'category' && ($id_category = Tools::getValue('id_category')))
 				return Meta::getCategoryMetas($id_category, $id_lang, $page_name, $title);
-			else if ($id_manufacturer = Tools::getValue('id_manufacturer'))
+			elseif ($page_name == 'manufacturer' && ($id_manufacturer = Tools::getValue('id_manufacturer')))
 				return Meta::getManufacturerMetas($id_manufacturer, $id_lang, $page_name);
-			else if ($id_supplier = Tools::getValue('id_supplier'))
+			elseif ($page_name == 'supplier' && ($id_supplier = Tools::getValue('id_supplier')))
 				return Meta::getSupplierMetas($id_supplier, $id_lang, $page_name);
-			else if ($id_cms = Tools::getValue('id_cms'))
+			elseif ($page_name == 'cms' && ($id_cms = Tools::getValue('id_cms')))
 				return Meta::getCmsMetas($id_cms, $id_lang, $page_name);
-			else if ($id_cms_category = Tools::getValue('id_cms_category'))
+			elseif ($page_name == 'cms' && ($id_cms_category = Tools::getValue('id_cms_category')))
 				return Meta::getCmsCategoryMetas($id_cms_category, $id_lang, $page_name);
 		}
 

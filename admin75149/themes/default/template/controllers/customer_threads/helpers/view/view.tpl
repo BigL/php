@@ -45,7 +45,7 @@
 				<select name="id_employee_forward" style="vertical-align: middle;">
 					<option value="-1">{l s='-- Choose --'}</option>
 					{foreach $employees as $employee}
-						<option value="{$employee.id_employee}"> {$employee.firstname|substr:0:1}. {$employee.lastname}</option>
+						<option value="{$employee.id_employee}"> {Tools::substr($employee.firstname, 0, 1)}. {$employee.lastname}</option>
 					{/foreach}
 					<option value="0">{l s='Someone else'}</option>
 				</select>
@@ -147,6 +147,7 @@
 
 	
 	<script type="text/javascript">
+		var timer;
 		$(document).ready(function(){
 			$('select[name=id_employee_forward]').change(function(){
 				if ($(this).val() >= 0)
@@ -164,7 +165,27 @@
 					$(this).val('');
 				}
 			});
+			timer = setInterval("markAsRead()", 3000);
 		});
+		
+		
+		function markAsRead()
+		{
+			$.ajax({
+				type: 'POST',
+				url: 'ajax-tab.php',
+				async: true,
+				dataType: 'json',
+				data: {
+					controller: 'AdminCustomerThreads',
+					action: 'markAsRead',
+					token : '{$token}',
+					id_thread: {$id_customer_thread}
+				}
+			});
+			clearInterval(timer);
+			timer = null;
+   		}
 	</script>
 
 {/block}

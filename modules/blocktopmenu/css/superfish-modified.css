@@ -69,7 +69,7 @@ ul.sf-menu li li.sfHover li ul {
 }
 ul.sf-menu li li li:hover ul,
 ul.sf-menu li li li.sfHover ul {
-	left:			10em; /* match ul width */
+	left:			200px; /* match ul width */
 	top:			0;
 }
 
@@ -149,8 +149,8 @@ li.sfHover > a > .sf-sub-indicator {
 .sf-shadow ul {
 	background:	url('../img/shadow.png') no-repeat bottom right;
 	padding: 0 8px 9px 0;
-	-moz-border-radius-bottomleft: 17px;
-	-moz-border-radius-topright: 17px;
+	-moz-border-bottom-left-radius: 17px;
+	-moz-border-top-right-radius: 17px;
 	-webkit-border-top-right-radius: 17px;
 	-webkit-border-bottom-left-radius: 17px;
 }

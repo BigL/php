@@ -20,7 +20,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 15544 $
+*  @version  Release: $Revision: 16976 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -86,7 +86,13 @@ class HelperCore
 			else if ($this->module)
 				$override_tpl_path = _PS_MODULE_DIR_.$this->module->name.'/views/templates/admin/_configure/'.$this->override_folder.$this->base_folder.$tpl_name;
 			else
-				$override_tpl_path = $this->context->smarty->getTemplateDir(0).'controllers/'.$this->override_folder.$this->base_folder.$tpl_name;
+			{
+				if (file_exists($this->context->smarty->getTemplateDir(1).DIRECTORY_SEPARATOR.$this->override_folder.$this->base_folder.$tpl_name))
+					$override_tpl_path = $this->context->smarty->getTemplateDir(1).DIRECTORY_SEPARATOR.$this->override_folder.$this->base_folder.$tpl_name;
+				else if (file_exists($this->context->smarty->getTemplateDir(0).DIRECTORY_SEPARATOR.'controllers'.DIRECTORY_SEPARATOR.$this->override_folder.$this->base_folder.$tpl_name))
+					$override_tpl_path = $this->context->smarty->getTemplateDir(0).'controllers'.DIRECTORY_SEPARATOR.$this->override_folder.$this->base_folder.$tpl_name;
+
+			}
 		}
 		else if ($this->module)
 			$override_tpl_path = _PS_MODULE_DIR_.$this->module->name.'/views/templates/admin/_configure/'.$this->base_folder.$tpl_name;
@@ -355,9 +361,10 @@ class HelperCore
 		$context = Context::getContext();
 
 		// Get default value
-		if (Shop::getContext() == Shop::CONTEXT_ALL)
+		$shop_context = Shop::getContext();
+		if ($shop_context == Shop::CONTEXT_ALL || ($context->controller->multishop_context_group == false && $shop_context == Shop::CONTEXT_GROUP))
 			$value = '';
-		else if (Shop::getContext() == Shop::CONTEXT_GROUP)
+		else if ($shop_context == Shop::CONTEXT_GROUP)
 			$value = 'g-'.Shop::getContextShopGroupID();
 		else
 			$value = 's-'.Shop::getContextShopID();
@@ -370,14 +377,14 @@ class HelperCore
 		foreach ($tree as $gID => $group_data)
 		{
 			if ((!isset($context->controller->multishop_context) || $context->controller->multishop_context & Shop::CONTEXT_GROUP))
-				$html .= '<option class="group" value="g-'.$gID.'" '.(($value == 'g-'.$gID) ? 'selected="selected"' : '').'>'.Translate::getAdminTranslation('Group:').' '.htmlspecialchars($group_data['name']).'</option>';
+				$html .= '<option class="group" value="g-'.$gID.'" '.(($value == 'g-'.$gID) ? 'selected="selected"' : '').' '.($context->controller->multishop_context_group == false ? 'disabled="disabled"' : '').'>'.Translate::getAdminTranslation('Group:').' '.htmlspecialchars($group_data['name']).'</option>';
 			else
-				$html .= '<optgroup class="group" label="'.Translate::getAdminTranslation('Group:').' '.htmlspecialchars($group_data['name']).'">';
+				$html .= '<optgroup class="group" label="'.Translate::getAdminTranslation('Group:').' '.htmlspecialchars($group_data['name']).'" '.($context->controller->multishop_context_group == false ? 'disabled="disabled"' : '').'>';
 
 			if (!isset($context->controller->multishop_context) || $context->controller->multishop_context & Shop::CONTEXT_SHOP)
 				foreach ($group_data['shops'] as $sID => $shopData)
 					if ($shopData['active'])
-						$html .= '<option value="s-'.$sID.'" class="shop" '.(($value == 's-'.$sID) ? 'selected="selected"' : '').'>&raquo; '.$shopData['name'].'</option>';
+						$html .= '<option value="s-'.$sID.'" class="shop" '.(($value == 's-'.$sID) ? 'selected="selected"' : '').'>&raquo; '.($context->controller->multishop_context_group == false ? htmlspecialchars($group_data['name']).' - ' : '').$shopData['name'].'</option>';
 
 			if (!(!isset($context->controller->multishop_context) || $context->controller->multishop_context & Shop::CONTEXT_GROUP))
 				$html .= '</optgroup>';

@@ -110,33 +110,36 @@ class AttributeGroupCore extends ObjectModel
 
 	public function delete()
 	{
-		/* Select children in order to find linked combinations */
-		$attribute_ids = Db::getInstance()->executeS('
-			SELECT `id_attribute`
-			FROM `'._DB_PREFIX_.'attribute`
-			WHERE `id_attribute_group` = '.(int)$this->id
-		);
-		if ($attribute_ids === false)
-			return false;
-		/* Removing attributes to the found combinations */
-		$to_remove = array();
-		foreach ($attribute_ids as $attribute)
-			$to_remove[] = (int)$attribute['id_attribute'];
-		if (!empty($to_remove) && Db::getInstance()->execute('
-			DELETE FROM `'._DB_PREFIX_.'product_attribute_combination`
-			WHERE `id_attribute`
-				IN ('.implode(', ', $to_remove).')') === false)
-			return false;
-		/* Remove combinations if they do not possess attributes anymore */
-		if (!AttributeGroup::cleanDeadCombinations())
-			return false;
-	 	/* Also delete related attributes */
-		if (Db::getInstance()->execute('
-			DELETE FROM `'._DB_PREFIX_.'attribute_lang`
-			WHERE `id_attribute`
-				IN (SELECT id_attribute FROM `'._DB_PREFIX_.'attribute` WHERE `id_attribute_group` = '.(int)$this->id.')') === false ||
-				Db::getInstance()->execute('DELETE FROM `'._DB_PREFIX_.'attribute` WHERE `id_attribute_group` = '.(int)$this->id) === false)
-			return false;
+		if (!$this->hasMultishopEntries())
+		{
+			/* Select children in order to find linked combinations */
+			$attribute_ids = Db::getInstance()->executeS('
+				SELECT `id_attribute`
+				FROM `'._DB_PREFIX_.'attribute`
+				WHERE `id_attribute_group` = '.(int)$this->id
+			);
+			if ($attribute_ids === false)
+				return false;
+			/* Removing attributes to the found combinations */
+			$to_remove = array();
+			foreach ($attribute_ids as $attribute)
+				$to_remove[] = (int)$attribute['id_attribute'];
+			if (!empty($to_remove) && Db::getInstance()->execute('
+				DELETE FROM `'._DB_PREFIX_.'product_attribute_combination`
+				WHERE `id_attribute`
+					IN ('.implode(', ', $to_remove).')') === false)
+				return false;
+			/* Remove combinations if they do not possess attributes anymore */
+			if (!AttributeGroup::cleanDeadCombinations())
+				return false;
+		 	/* Also delete related attributes */
+			if (Db::getInstance()->execute('
+				DELETE FROM `'._DB_PREFIX_.'attribute_lang`
+				WHERE `id_attribute`
+					IN (SELECT id_attribute FROM `'._DB_PREFIX_.'attribute` WHERE `id_attribute_group` = '.(int)$this->id.')') === false ||
+					Db::getInstance()->execute('DELETE FROM `'._DB_PREFIX_.'attribute` WHERE `id_attribute_group` = '.(int)$this->id) === false)
+				return false;
+		}
 		$return = parent::delete();
 		if ($return)
 			Hook::exec('actionAttributeGroupDelete', array('id_attribute_group' => $this->id));
@@ -157,6 +160,7 @@ class AttributeGroupCore extends ObjectModel
 		return Db::getInstance()->executeS('
 			SELECT *
 			FROM `'._DB_PREFIX_.'attribute` a
+			'.Shop::addSqlAssociation('attribute', 'a').'
 			LEFT JOIN `'._DB_PREFIX_.'attribute_lang` al
 				ON (a.`id_attribute` = al.`id_attribute` AND al.`id_lang` = '.(int)$id_lang.')
 			WHERE a.`id_attribute_group` = '.(int)$id_attribute_group.'
@@ -176,8 +180,9 @@ class AttributeGroupCore extends ObjectModel
 			return array();
 
 		return Db::getInstance()->executeS('
-			SELECT *
+			SELECT DISTINCT agl.`name`, ag.*, agl.*
 			FROM `'._DB_PREFIX_.'attribute_group` ag
+			'.Shop::addSqlAssociation('attribute_group', 'ag').'
 			LEFT JOIN `'._DB_PREFIX_.'attribute_group_lang` agl
 				ON (ag.`id_attribute_group` = agl.`id_attribute_group` AND `id_lang` = '.(int)$id_lang.')
 			ORDER BY `name` ASC

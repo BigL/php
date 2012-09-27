@@ -550,7 +550,7 @@ class ThemeInstallator extends Module
 						if (Validate::isLoadedObject($obj))
 						{
 							if ($flag++ == 0)
-								$msg .= '<b>'.$this->l('The following modules have been unhook:').'</b><br />';
+								$msg .= '<b>'.$this->l('The following modules have been unhooked:').'</b><br />';
 
 							// Delete all native module which are in the front office feature category and in selected shops
 							$sql = 'DELETE FROM `'._DB_PREFIX_.'module_shop` WHERE `id_module` = '.pSQL($obj->id).' AND `id_shop` = '.(int)$id_shop;
@@ -620,7 +620,7 @@ class ThemeInstallator extends Module
 		else
 		{
 			$errors = '<em><strong>'.
-				$this->l('Warning: Copy/Paste your errors if you want to manually set the image type (in the tab Preferences > Images):').
+				$this->l('Warning: Copy/Paste your errors if you want to manually set the image type (in the "Images" page under the "Preferences" menu):').
 				'</em></strong><br />';
 			$errors .= $this->l('Some kind of image could not be added because they exists. Here\'s the list:');
 			$errors .= '<ul>';
@@ -1504,7 +1504,7 @@ class ThemeInstallator extends Module
 		$id = 0;
 		foreach ($this->theme_list as $row)
 		{
-			if (!is_dir(_PS_ALL_THEMES_DIR_.$row) || !file_exists(_PS_ALL_THEMES_DIR_.$row.'/index.tpl') || $row == $this->default_theme || $row == Tools::getValue('mainTheme'))
+			if (!is_dir(_PS_ALL_THEMES_DIR_.$row) || !file_exists(_PS_ALL_THEMES_DIR_.$row.'/index.tpl'))
 				continue;
 
 			$this->_html .= 'themes['.$id.'] = "'.$row.'";';

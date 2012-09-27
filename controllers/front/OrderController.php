@@ -63,9 +63,8 @@ class OrderControllerCore extends ParentOrderController
 				Tools::displayPrice($minimal_purchase, $currency)
 			);
 		}
-
 		if (!$this->context->customer->isLogged(true) && in_array($this->step, array(1, 2, 3)))
-			Tools::redirect('index.php?controller=authentication&back='.urlencode('order.php&step='.$this->step.'&multi-shipping='.(int)Tools::getValue('multi-shipping')).'&multi-shipping='.(int)Tools::getValue('multi-shipping'));
+			Tools::redirect($this->context->link->getPageLink('authentication', true, (int)$this->context->language->id, 'back='.$this->context->link->getPageLink('order', true, (int)$this->context->language->id, 'step='.$this->step.'&multi-shipping='.(int)Tools::getValue('multi-shipping')).'&multi-shipping='.(int)Tools::getValue('multi-shipping')));
 
 		if (Tools::getValue('multi-shipping') == 1)
 			$this->context->smarty->assign('multi_shipping', true);
@@ -172,9 +171,10 @@ class OrderControllerCore extends ParentOrderController
 				{
 					if ($this->context->customer->is_guest)
 					{
+						$order = new Order((int)$id_order);
 						$email = $this->context->customer->email;
 						$this->context->customer->mylogout(); // If guest we clear the cookie for security reason
-						Tools::redirect('index.php?controller=guest-tracking&id_order='.(int)$id_order.'&email='.urlencode($email));
+						Tools::redirect('index.php?controller=guest-tracking&id_order='.(int)$order->reference.'&email='.urlencode($email));
 					}
 					else
 						Tools::redirect('index.php?controller=history');
@@ -238,39 +238,45 @@ class OrderControllerCore extends ParentOrderController
 		}
 	}
 
-	/*
+	/**
 	 * Manage address
 	 */
 	public function processAddress()
 	{
 		if (!Tools::getValue('multi-shipping'))
 			$this->context->cart->setNoMultishipping();
-
-		// Add checking for all addresses
-		$address_without_carriers = $this->context->cart->getDeliveryAddressesWithoutCarriers();
-		if (count($address_without_carriers))
-		{
-			if (count($address_without_carriers) > 1)
-				$this->errors[] = sprintf(Tools::displayError('There are no carriers that deliver to some addresses you selected.'));
-			elseif ($this->context->cart->isMultiAddressDelivery())
-				$this->errors[] = sprintf(Tools::displayError('There are no carriers that deliver to one of the address you selected.'));
-			else
-				$this->errors[] = sprintf(Tools::displayError('There are no carriers that deliver to the address you selected.'));
-		}
+			
+		if (!Customer::customerHasAddress($this->context->customer->id, (int)Tools::getValue('id_address_delivery'))
+			|| (Tools::isSubmit('same') && !Customer::customerHasAddress($this->context->customer->id, (int)Tools::getValue('id_address_invoice'))))
+			$this->errors[] = Tools::displayError('Invalid address');
 		else
 		{
-			$this->context->cart->id_address_delivery = (int)Tools::getValue('id_address_delivery');
-			$this->context->cart->id_address_invoice = Tools::isSubmit('same') ? $this->context->cart->id_address_delivery : (int)Tools::getValue('id_address_invoice');
-			if (!$this->context->cart->update())
-				$this->errors[] = Tools::displayError('An error occurred while updating your cart.');
+			// Add checking for all addresses
+			$address_without_carriers = $this->context->cart->getDeliveryAddressesWithoutCarriers();
+			if (count($address_without_carriers))
+			{
+				if (count($address_without_carriers) > 1)
+					$this->errors[] = sprintf(Tools::displayError('There are no carriers that deliver to some addresses you selected.'));
+				elseif ($this->context->cart->isMultiAddressDelivery())
+					$this->errors[] = sprintf(Tools::displayError('There are no carriers that deliver to one of the address you selected.'));
+				else
+					$this->errors[] = sprintf(Tools::displayError('There are no carriers that deliver to the address you selected.'));
+			}
+			else
+			{
+				$this->context->cart->id_address_delivery = (int)Tools::getValue('id_address_delivery');
+				$this->context->cart->id_address_invoice = Tools::isSubmit('same') ? $this->context->cart->id_address_delivery : (int)Tools::getValue('id_address_invoice');
+				if (!$this->context->cart->update())
+					$this->errors[] = Tools::displayError('An error occurred while updating your cart.');
 
-			if (!$this->context->cart->isMultiAddressDelivery())
-				$this->context->cart->setNoMultishipping(); // As the cart is no multishipping, set each delivery address lines with the main delivery address
+				if (!$this->context->cart->isMultiAddressDelivery())
+					$this->context->cart->setNoMultishipping(); // If there is only one delivery address, set each delivery address lines with the main delivery address
 
-			if (Tools::isSubmit('message'))
-				$this->_updateMessage(Tools::getValue('message'));
+				if (Tools::isSubmit('message'))
+					$this->_updateMessage(Tools::getValue('message'));
+			}
 		}
-
+		
 		if ($this->errors)
 		{
 			if (Tools::getValue('ajax'))
@@ -328,8 +334,21 @@ class OrderControllerCore extends ParentOrderController
 		parent::_assignCarrier();
 		// Assign wrapping and TOS
 		$this->_assignWrappingAndTOS();
-
-		$this->context->smarty->assign('is_guest', (isset($this->context->customer->is_guest) ? $this->context->customer->is_guest : 0));
+		
+		// If a rule offer free-shipping, force hidding shipping prices
+		$free_shipping = false;
+		foreach ($this->context->cart->getCartRules() as $rule)
+			if ($rule['free_shipping'])
+			{
+				$free_shipping = true;
+				break;
+			}
+		
+		$this->context->smarty->assign(
+			array(
+				'free_shipping' => $free_shipping,
+				'is_guest' => (isset($this->context->customer->is_guest) ? $this->context->customer->is_guest : 0)
+			));
 	}
 
 	/**

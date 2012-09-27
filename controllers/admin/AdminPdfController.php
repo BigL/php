@@ -20,7 +20,7 @@ ing*
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 14276 $
+*  @version  Release: $Revision: 16761 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -33,6 +33,16 @@ class AdminPdfControllerCore extends AdminController
 
 		// We want to be sure that displaying PDF is the last thing this controller will do
 		exit;
+	}
+
+	public function initProcess()
+	{
+		parent::initProcess();	
+		$access = Profile::getProfileAccess($this->context->employee->id_profile, (int)Tab::getIdFromClassName('AdminOrders'));
+		if ($access['view'] === '1' && ($action = Tools::getValue('submitAction')))
+			$this->action = $action;
+		else
+			$this->errors[] = Tools::displayError('You do not have permission to view here.');
 	}
 
 	public function processGenerateInvoicePdf()

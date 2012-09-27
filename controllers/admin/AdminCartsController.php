@@ -188,7 +188,7 @@ class AdminCartsControllerCore extends AdminController
 			$this->context->customer = $customer;
 			$id_cart = (int)Tools::getValue('id_cart');
 			if (!$id_cart)
-				$id_cart = $customer->getLastCart();
+				$id_cart = $customer->getLastCart(false);
 			$this->context->cart = new Cart((int)$id_cart);
 			if (!$this->context->cart->id_customer)
 				$this->context->cart->id_customer = $id_customer;
@@ -215,7 +215,7 @@ class AdminCartsControllerCore extends AdminController
 				$this->context->cart->id_address_delivery = $addresses[0]['id_address'];
 			elseif ($id_address_delivery)
 				$this->context->cart->id_address_delivery = (int)$id_address_delivery;
-
+			$this->context->cart->setNoMultishipping();
 			$this->context->cart->save();
 			$currency = new Currency((int)$this->context->cart->id_currency);
 			$this->context->currency = $currency;
@@ -233,8 +233,7 @@ class AdminCartsControllerCore extends AdminController
 				$errors[] = Tools::displayError('Invalid combination');
 			if (count($errors))
 				die(Tools::jsonEncode($errors));
-
-			if ($this->context->cart->deleteProduct($id_product, $id_product_attribute))
+			if ($this->context->cart->deleteProduct($id_product, $id_product_attribute, (int)Tools::getValue('id_customization')))
 				echo Tools::jsonEncode($this->ajaxReturnVars());
 		}
 	}
@@ -244,53 +243,58 @@ class AdminCartsControllerCore extends AdminController
 		$errors = array();
 		if ($this->tabAccess['edit'] === '1')
 		{
-			if (!$this->context->cart->id || (!$id_product = (int)Tools::getValue('id_product')))
-				return;
-			$product = new Product((int)$id_product);
-			if (!$customization_fields = $product->getCustomizationFieldIds())
-				return;
-			foreach ($customization_fields as $customization_field)
+			$errors = array();
+			if (Tools::getValue('only_display') != 1)
 			{
-				$field_id = 'customization_'.$id_product.'_'.$customization_field['id_customization_field'];
-				if ($customization_field['type'] == Product::CUSTOMIZE_TEXTFIELD)
+				if (!$this->context->cart->id || (!$id_product = (int)Tools::getValue('id_product')))
+					return;
+				$product = new Product((int)$id_product);
+				if (!$customization_fields = $product->getCustomizationFieldIds())
+					return;
+				foreach ($customization_fields as $customization_field)
 				{
-					if (!isset($_POST[$field_id]))
+					$field_id = 'customization_'.$id_product.'_'.$customization_field['id_customization_field'];
+					if ($customization_field['type'] == Product::CUSTOMIZE_TEXTFIELD)
 					{
-						if ($customization_field['required'])
-							$errors[] = Tools::displayError('Please fill in all required fields');
-						continue;
+						if (!isset($_POST[$field_id]) || empty($_POST[$field_id]))
+						{
+							if ($customization_field['required'])
+								$errors[] = Tools::displayError('Please fill in all required fields');
+							continue;
+						}
+						if (!Validate::isMessage($_POST[$field_id]) || empty($_POST[$field_id]))
+							$errors[] = Tools::displayError('Invalid message');
+						$this->context->cart->addTextFieldToProduct((int)$product->id, (int)$customization_field['id_customization_field'], Product::CUSTOMIZE_TEXTFIELD, $_POST[$field_id]);
 					}
-					if (!Validate::isMessage($_POST[$field_id]) || empty($_POST[$field_id]))
-						$errors[] = Tools::displayError('Invalid message');
-					$this->context->cart->addTextFieldToProduct((int)$product->id, (int)$customization_field['id_customization_field'], Product::CUSTOMIZE_TEXTFIELD, $_POST[$field_id]);
-				}
-				elseif ($customization_field['type'] == Product::CUSTOMIZE_FILE)
-				{
-					if (!isset($_FILES[$field_id]) || !isset($_FILES[$field_id]['tmp_name']) || empty($_FILES[$field_id]['tmp_name']))
+					elseif ($customization_field['type'] == Product::CUSTOMIZE_FILE)
 					{
-						if ($customization_field['required'])
-							$errors[] = Tools::displayError('Please fill in all required fields');
-						continue;
+						if (!isset($_FILES[$field_id]) || !isset($_FILES[$field_id]['tmp_name']) || empty($_FILES[$field_id]['tmp_name']))
+						{
+							if ($customization_field['required'])
+								$errors[] = Tools::displayError('Please fill in all required fields');
+							continue;
+						}
+						if ($error = ImageManager::validateUpload($_FILES[$field_id], (int)Configuration::get('PS_PRODUCT_PICTURE_MAX_SIZE')))
+							$errors[] = $error;
+						if (!($tmp_name = tempnam(_PS_TMP_IMG_DIR_, 'PS')) || !move_uploaded_file($_FILES[$field_id]['tmp_name'], $tmp_name))
+							$errors[] = Tools::displayError('An error occurred during the image upload.');
+						$file_name = md5(uniqid(rand(), true));
+						if (!ImageManager::resize($tmp_name, _PS_UPLOAD_DIR_.$file_name))
+							continue;
+						elseif (!ImageManager::resize($tmp_name, _PS_UPLOAD_DIR_.$file_name.'_small', (int)Configuration::get('PS_PRODUCT_PICTURE_WIDTH'), (int)Configuration::get('PS_PRODUCT_PICTURE_HEIGHT')))
+							$errors[] = Tools::displayError('An error occurred during the image upload.');
+						elseif (!chmod(_PS_UPLOAD_DIR_.$file_name, 0777) || !chmod(_PS_UPLOAD_DIR_.$file_name.'_small', 0777))
+							$errors[] = Tools::displayError('An error occurred during the image upload.');
+						else
+							$this->context->cart->addPictureToProduct((int)$product->id, (int)$customization_field['id_customization_field'], Product::CUSTOMIZE_FILE, $file_name);
+						unlink($tmp_name);
 					}
-					if ($error = ImageManager::validateUpload($_FILES[$field_id], (int)Configuration::get('PS_PRODUCT_PICTURE_MAX_SIZE')))
-						$errors[] = $error;
-					if (!($tmp_name = tempnam(_PS_TMP_IMG_DIR_, 'PS')) || !move_uploaded_file($_FILES[$field_id]['tmp_name'], $tmp_name))
-						$errors[] = Tools::displayError('An error occurred during the image upload.');
-					$file_name = md5(uniqid(rand(), true));
-					if (!ImageManager::resize($tmp_name, _PS_UPLOAD_DIR_.$file_name))
-						continue;
-					elseif (!ImageManager::resize($tmp_name, _PS_UPLOAD_DIR_.$file_name.'_small', (int)Configuration::get('PS_PRODUCT_PICTURE_WIDTH'), (int)Configuration::get('PS_PRODUCT_PICTURE_HEIGHT')))
-						$errors[] = Tools::displayError('An error occurred during the image upload.');
-					elseif (!chmod(_PS_UPLOAD_DIR_.$file_name, 0777) || !chmod(_PS_UPLOAD_DIR_.$file_name.'_small', 0777))
-						$errors[] = Tools::displayError('An error occurred during the image upload.');
-					else
-						$this->context->cart->addPictureToProduct((int)$product->id, (int)$customization_field['id_customization_field'], Product::CUSTOMIZE_FILE, $file_name);
-					unlink($tmp_name);
 				}
 			}
 			$this->setMedia();
 			$this->initFooter();
-			$this->context->smarty->assign('customization_errors', implode('<br />', $errors));
+			$this->context->smarty->assign(array('customization_errors' => implode('<br />', $errors),
+															'css_files' => $this->css_files));
 			return $this->context->smarty->display('controllers/orders/form_customization_feedback.tpl');
 		}
 	}
@@ -401,6 +405,7 @@ class AdminCartsControllerCore extends AdminController
 			if (Validate::isLoadedObject($currency) && !$currency->deleted && $currency->active)
 			{
 				$this->context->cart->id_currency = (int)$currency->id;
+				$this->context->currency = $currency;
 				$this->context->cart->save();
 			}
 			echo Tools::jsonEncode($this->ajaxReturnVars());
@@ -524,13 +529,13 @@ class AdminCartsControllerCore extends AdminController
 
 	protected function getCartSummary()
 	{
-		$summary = $this->context->cart->getSummaryDetails();
-		$currency = new Currency((int)$this->context->cart->id_currency);
+		$summary = $this->context->cart->getSummaryDetails(null, true);
+		$currency = Context::getContext()->currency;
 		if (count($summary['products']))
 			foreach ($summary['products'] as &$product)
 			{
-				$product['price'] = str_replace($currency->sign, '', Tools::displayPrice(Tools::convertPrice($product['price'], $currency), $currency));
-				$product['total'] = str_replace($currency->sign, '', Tools::displayPrice(Tools::convertPrice($product['total'], $currency), $currency));
+				$product['price'] = str_replace($currency->sign, '', Tools::displayPrice($product['price'], $currency));
+				$product['total'] = str_replace($currency->sign, '', Tools::displayPrice($product['total'], $currency));
 				$product['image_link'] = $this->context->link->getImageLink($product['link_rewrite'], $product['id_image'], 'small');
 				if (!isset($product['attributes_small']))
 					$product['attributes_small'] = '';
@@ -540,28 +545,36 @@ class AdminCartsControllerCore extends AdminController
 				$voucher['value_real'] = Tools::displayPrice($voucher['value_real'], $currency);
 		$summary['total_products'] = str_replace(
 			$currency->sign, '',
-			Tools::displayPrice(Tools::convertPrice($summary['total_products'], $currency), $currency)
+			Tools::displayPrice($summary['total_products'], $currency)
 		);
 		$summary['total_discounts_tax_exc'] = str_replace(
 			$currency->sign, '',
-			Tools::displayPrice(Tools::convertPrice($summary['total_discounts_tax_exc'], $currency), $currency)
+			Tools::displayPrice($summary['total_discounts_tax_exc'], $currency)
 		);
 		$summary['total_shipping_tax_exc'] = str_replace(
 			$currency->sign, '',
-			Tools::displayPrice(Tools::convertPrice($summary['total_shipping_tax_exc'], $currency), $currency)
+			Tools::displayPrice($summary['total_shipping_tax_exc'], $currency)
 		);
 		$summary['total_tax'] = str_replace(
 			$currency->sign, '',
-			Tools::displayPrice(Tools::convertPrice($summary['total_tax'], $currency), $currency)
+			Tools::displayPrice($summary['total_tax'], $currency)
 		);
 		$summary['total_price_without_tax'] = str_replace(
 			$currency->sign, '',
-			Tools::displayPrice(Tools::convertPrice($summary['total_price_without_tax'], $currency), $currency)
+			Tools::displayPrice($summary['total_price_without_tax'], $currency)
 		);
 		$summary['total_price'] = str_replace(
 			$currency->sign, '',
-			Tools::displayPrice(Tools::convertPrice($summary['total_price'], $currency), $currency)
+			Tools::displayPrice($summary['total_price'], $currency)
 		);
+		if (isset($summary['gift_products']) && count($summary['gift_products']))
+			foreach ($summary['gift_products'] as &$product)
+			{
+				$product['image_link'] = $this->context->link->getImageLink($product['link_rewrite'], $product['id_image'], 'small');
+				if (!isset($product['attributes_small']))
+					$product['attributes_small'] = '';
+			}
+			
 
 		return $summary;
 	}
@@ -570,7 +583,7 @@ class AdminCartsControllerCore extends AdminController
 	{
 		$delivery_option_list_formated = array();
 		$delivery_option_list = $this->context->cart->getDeliveryOptionList();
-		
+
 		if (!count($delivery_option_list))
 			return array();
 
@@ -618,14 +631,14 @@ class AdminCartsControllerCore extends AdminController
 			foreach ($carts as $key => &$cart)
 			{
 				$cart_obj = new Cart((int)$cart['id_cart']);
-				if (!Validate::isLoadedObject($cart_obj) || $cart_obj->OrderExists())
+				if ($cart['id_cart'] == $this->context->cart->id || !Validate::isLoadedObject($cart_obj) || $cart_obj->OrderExists())
 					unset($carts[$key]);
 				$currency = new Currency((int)$cart['id_currency']);
-				$cart['total_price'] = Tools::displayPrice(Tools::convertPrice($cart_obj->getOrderTotal(), $currency), $currency);
+				$cart['total_price'] = Tools::displayPrice($cart_obj->getOrderTotal(), $currency);
 			}
 		if (count($orders))
 			foreach ($orders as &$order)
-				$order['total_paid_real'] = Tools::displayPrice(Tools::convertPrice($order['total_paid_real'], $currency), $currency);
+				$order['total_paid_real'] = Tools::displayPrice($order['total_paid_real'], $currency);
 		if ($orders || $carts)
 			$to_return = array_merge($this->ajaxReturnVars(),
 											array('carts' => $carts,
@@ -639,7 +652,7 @@ class AdminCartsControllerCore extends AdminController
 
 	public function ajaxReturnVars()
 	{
-		$id_cart = (int)$this->context->cart->id;	
+		$id_cart = (int)$this->context->cart->id;
 		$message_content = '';
 		if ($message = Message::getMessageByCartId((int)$this->context->cart->id))
 			$message_content = $message['message'];
@@ -708,8 +721,8 @@ class AdminCartsControllerCore extends AdminController
 	{
 		$context = Context::getContext();
 		$context->cart = new Cart($id_cart);
-		$context->customer = new Customer($context->cart->id_customer);
-		return Cart::getTotalCart($id_cart, true);
+		$context->customer = new Customer((int)$context->cart->id_customer);
+		return Cart::getTotalCart($id_cart, true, Cart::BOTH_WITHOUT_SHIPPING);
 	}
 
 	public static function replaceZeroByShopName($echo, $tr)

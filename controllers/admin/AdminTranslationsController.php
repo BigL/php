@@ -87,6 +87,14 @@ class AdminTranslationsControllerCore extends AdminController
 		include_once(_PS_ADMIN_DIR_.'/../tools/pear/PEAR.php');
 	}
 
+	/*
+	 * Set the type which is selected
+	 */
+	public function setTypeSelected($type_selected)
+	{
+		$this->type_selected = $type_selected;
+	}
+
 	/**
 	 * AdminController::initContent() override
 	 * @see AdminController::initContent()
@@ -197,6 +205,7 @@ class AdminTranslationsControllerCore extends AdminController
 			'packs_to_update' => $packs_to_update,
 			'url_submit' => self::$currentIndex.'&token='.$this->token,
 			'themes' => $this->themes,
+			'id_theme_current' => $this->context->shop->id_theme,
 			'url_create_language' => 'index.php?controller=AdminLanguages&addlang&token='.$token,
 		);
 
@@ -307,7 +316,7 @@ class AdminTranslationsControllerCore extends AdminController
 				$this->redirect();
 		}
 		else
-			throw new PrestaShopException(sprintf(Tools::displayError('Cannot write this file : "%s"'), $file_path));
+			throw new PrestaShopException(sprintf(Tools::displayError('Cannot write this file: "%s"'), $file_path));
 	}
 
 	public function submitCopyLang()
@@ -361,10 +370,44 @@ class AdminTranslationsControllerCore extends AdminController
 		return $bool_flag;
 	}
 
+	public function exportTabs()
+	{
+		// Get name tabs by iso code
+		$tabs = Tab::getTabs($this->lang_selected->id);
+
+		// Get name of the default tabs
+		$tabs_default_lang = Tab::getTabs(1);
+
+		$tabs_default = array();
+		foreach ($tabs_default_lang as $tab)
+			$tabs_default[$tab['class_name']] = utf8_decode($tab['name']);
+
+		// Create content
+		$content = "<?php\n\n\$tabs = array();";
+		if (!empty($tabs))
+			foreach ($tabs as $tab)
+				if ($tabs_default[$tab['class_name']] != utf8_decode($tab['name']))
+				$content .= "\n\$tabs['".$tab['class_name']."'] = '".utf8_decode($tab['name'])."';";
+		$content .= "\n\nreturn \$tabs;";
+
+		$dir = _PS_TRANSLATIONS_DIR_.$this->lang_selected->iso_code.DIRECTORY_SEPARATOR;
+		$path = $dir.'tabs.php';
+
+		// Check if tabs.php exists for the selected Iso Code
+		if (!Tools::file_exists_cache($dir))
+			if (!mkdir($dir, 0777, true))
+				throw new PrestaShopException('The file '.$dir.' cannot be created.');
+		if (!file_put_contents($path, $content))
+				throw new PrestaShopException('File "'.$path.'" doesn\'t exists and cannot be created in '.$dir);
+		if (!is_writable($path))
+			$this->displayWarning(sprintf(Tools::displayError('This file must be writable: %s'), $path));
+	}
+
 	public function submitExportLang()
 	{
 		if ($this->lang_selected->iso_code && $this->theme_selected)
 		{
+			$this->exportTabs();
 			$items = array_flip(Language::getFilesList($this->lang_selected->iso_code, $this->theme_selected, false, false, false, false, true));
 			$gz = new Archive_Tar(_PS_TRANSLATIONS_DIR_.'/export/'.$this->lang_selected->iso_code.'.gzip', true);
 			$file_name = Tools::getCurrentUrlProtocolPrefix().Tools::getShopDomain().__PS_BASE_URI__.'translations/export/'.$this->lang_selected->iso_code.'.gzip';
@@ -507,7 +550,7 @@ class AdminTranslationsControllerCore extends AdminController
 					if (isset($tab->class_name) && !empty($tab->class_name))
 					{
 						$id_lang = Language::getIdByIso($iso_code);
-						$tab->name[(int)$id_lang] = pSQL($translations);
+						$tab->name[(int)$id_lang] = pSQL(utf8_encode($translations));
 
 						// Update this tab
 						$tab->update();
@@ -775,11 +818,12 @@ class AdminTranslationsControllerCore extends AdminController
 		switch ($this->type_selected)
 		{
 			case 'front':
-				$directories['tpl'] = array(
-					_PS_THEME_SELECTED_DIR_.'/' => scandir(_PS_THEME_SELECTED_DIR_),
-					_PS_THEME_OVERRIDE_DIR_.'/' => Tools::file_exists_cache(_PS_THEME_OVERRIDE_DIR_) ? scandir(_PS_THEME_OVERRIDE_DIR_) : array(),
-					_PS_ALL_THEMES_DIR_.'/' => scandir(_PS_ALL_THEMES_DIR_)
-				);
+				$directories['tpl'] = array(_PS_ALL_THEMES_DIR_.'/' => scandir(_PS_ALL_THEMES_DIR_));
+				$directories['tpl'] = array_merge($directories['tpl'], $this->listFiles(_PS_THEME_SELECTED_DIR_));
+
+				if (Tools::file_exists_cache(_PS_THEME_OVERRIDE_DIR_))
+					$directories['tpl'] = array_merge($directories['tpl'], $this->listFiles(_PS_THEME_OVERRIDE_DIR_));
+
 				break;
 
 			case 'back':
@@ -803,6 +847,11 @@ class AdminTranslationsControllerCore extends AdminController
 						)
 					)
 				);
+
+				// For translate the template which are overridden
+				if (file_exists(_PS_OVERRIDE_DIR_.'controllers'.DIRECTORY_SEPARATOR.'admin'.DIRECTORY_SEPARATOR.'templates'))
+					$directories['tpl'] = array_merge($directories['tpl'], $this->listFiles(_PS_OVERRIDE_DIR_.'controllers'.DIRECTORY_SEPARATOR.'admin'.DIRECTORY_SEPARATOR.'templates'));
+
 				break;
 
 			case 'errors':
@@ -1353,7 +1402,7 @@ class AdminTranslationsControllerCore extends AdminController
 		$language_code = Tools::htmlentitiesUTF8(Language::getLanguageCodeByIso(Tools::getValue('lang')));
 		return array('language_code' => $language_code,
 					 'not_available' => addslashes(html_entity_decode($this->l('this language is not available in Google Translate\'s API'), ENT_QUOTES, 'utf-8')),
-					 'tooltip_title' => addslashes(html_entity_decode($this->l('Google Translate suggests :'), ENT_QUOTES, 'utf-8'))
+					 'tooltip_title' => addslashes(html_entity_decode($this->l('Google Translate suggests:'), ENT_QUOTES, 'utf-8'))
 					);
 	}
 
@@ -1362,7 +1411,6 @@ class AdminTranslationsControllerCore extends AdminController
 		$return = array();
 		if ((ini_get('suhosin.post.max_vars') && ini_get('suhosin.post.max_vars') < $count) || (ini_get('suhosin.request.max_vars') && ini_get('suhosin.request.max_vars') < $count))
 		{
-			$this->post_limit_exceed = true;
 			$return['error_type'] = 'suhosin';
 			$return['post.max_vars'] = ini_get('suhosin.post.max_vars');
 			$return['request.max_vars'] = ini_get('suhosin.request.max_vars');
@@ -1370,7 +1418,6 @@ class AdminTranslationsControllerCore extends AdminController
 		}
 		elseif (ini_get('max_input_vars') && ini_get('max_input_vars') < $count)
 		{
-			$this->post_limit_exceed = true;
 			$return['error_type'] = 'conf';
 			$return['max_input_vars'] = ini_get('max_input_vars');
 			$return['needed_limit'] = $count + 100;
@@ -1451,7 +1498,11 @@ class AdminTranslationsControllerCore extends AdminController
 						}
 					}
 
-					$tabs_array[$prefix_key] = $new_lang;
+					if (isset($tabs_array[$prefix_key]))
+						$tabs_array[$prefix_key] = array_merge($tabs_array[$prefix_key], $new_lang);
+					else
+						$tabs_array[$prefix_key] = $new_lang;
+
 					$count += count($new_lang);
 				}
 			}
@@ -1679,12 +1730,12 @@ class AdminTranslationsControllerCore extends AdminController
 			if (Tools::file_exists_cache($this->translations_informations['modules']['dir']))
 				$modules = scandir($this->translations_informations['modules']['dir']);
 			else
-				$this->displayWarning(Tools::displayError('There are no modules in your copy of PrestaShop. Use the Modules tab to activate them or go to our Website to download additional Modules.'));
+				$this->displayWarning(Tools::displayError('There are no modules in your copy of PrestaShop. Use the Modules page to activate them or go to our Website to download additional Modules.'));
 		else
 			if (Tools::file_exists_cache($this->translations_informations['modules']['override']['dir']))
 				$modules = scandir($this->translations_informations['modules']['override']['dir']);
 			else
-				$this->displayWarning(Tools::displayError('There are no modules in your copy of PrestaShop. Use the Modules tab to activate them or go to our Website to download additional Modules.'));
+				$this->displayWarning(Tools::displayError('There are no modules in your copy of PrestaShop. Use the Modules page to activate them or go to our Website to download additional Modules.'));
 
 		return $modules;
 	}
@@ -1952,8 +2003,12 @@ class AdminTranslationsControllerCore extends AdminController
 						<div class="label-subject" style="text-align:center;">
 							<label style="text-align:right">'.sprintf($this->l('Subject for %s:'), '<em>'.$mail_name.'</em>').'</label>
 							<div class="mail-form" style="text-align:left">
-								<b>'.$subject_mail.'</b><br />
-								<input type="text" name="subject['.$group_name.']['.$subject_mail.']" value="'.$value_subject_mail['trad'].'" />';
+								<b>'.$subject_mail.'</b><br />';
+								if (isset($value_subject_mail['trad']) && $value_subject_mail['trad'])
+									$str_return .= '<input type="text" name="subject['.$group_name.']['.$subject_mail.']" value="'.$value_subject_mail['trad'].'" />';
+								else
+									$str_return .= '<input type="text" name="subject['.$group_name.']['.$subject_mail.']" value="" />';
+
 								if (isset($value_subject_mail['use_sprintf']) && $value_subject_mail['use_sprintf'])
 								{
 									$str_return .= '<a class="useSpecialSyntax" title="'.$this->l('This expression uses a special syntax:').' '.$value_subject_mail['use_sprintf'].'" style="cursor:pointer">
@@ -2140,7 +2195,7 @@ class AdminTranslationsControllerCore extends AdminController
 					$subject_mail = $this->getSubjectMail($dir, $file, $subject_mail);
 
 		// Get path of directory for find a good path of translation file
-		if ($this->theme_selected != self::DEFAULT_THEME_NAME)
+		if ($this->theme_selected != self::DEFAULT_THEME_NAME && @filemtime($this->translations_informations[$this->type_selected]['override']['dir']))
 			$i18n_dir = $this->translations_informations[$this->type_selected]['override']['dir'];
 		else
 			$i18n_dir = $this->translations_informations[$this->type_selected]['dir'];
@@ -2411,20 +2466,20 @@ class AdminTranslationsControllerCore extends AdminController
 		$i18n_dir = $this->translations_informations[$this->type_selected]['dir'];
 		$default_i18n_file = $i18n_dir.$this->translations_informations[$this->type_selected]['file'];
 
-		if ($this->theme_selected != self::DEFAULT_THEME_NAME)
+		if (($this->theme_selected == self::DEFAULT_THEME_NAME) && _PS_MODE_DEV_)
+			$i18n_file = $default_i18n_file;
+		else
 		{
 			$i18n_dir = $this->translations_informations[$this->type_selected]['override']['dir'];
 			$i18n_file = $i18n_dir.$this->translations_informations[$this->type_selected]['override']['file'];
 		}
-		else
-			$i18n_file = $default_i18n_file;
 
-        $this->checkDirAndCreate($i18n_file);
-		if (!Tools::file_exists_cache($i18n_file))
-			throw new PrestaShopException(sprintf(Tools::displayError('Please create a "%1$s.php" file in "%2$s"'), $this->lang_selected->iso_code, $i18n_dir));
+		$this->checkDirAndCreate($i18n_file);
+		if (!file_exists($i18n_file))
+			$this->errors[] = sprintf(Tools::displayError('Please create a "%1$s.php" file in "%2$s"'), $this->lang_selected->iso_code, $i18n_dir);
 
 		if (!is_writable($i18n_file))
-			throw new PrestaShopException(sprintf(Tools::displayError('Cannot write into the "%s"'), $i18n_file));
+			$this->errors[] = sprintf(Tools::displayError('Cannot write into the "%s"'), $i18n_file);
 
 		@include($i18n_file);
 

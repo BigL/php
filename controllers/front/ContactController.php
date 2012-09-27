@@ -47,7 +47,7 @@ class ContactControllerCore extends FrontController
 				$fileAttachment['name'] = $_FILES['fileUpload']['name'];
 				$fileAttachment['mime'] = $_FILES['fileUpload']['type'];
 			}
-			$message = Tools::htmlentitiesUTF8(Tools::getValue('message'));
+			$message = Tools::getValue('message'); // Html entities is not usefull, iscleanHtml check there is no bad html tags.
 			if (!($from = trim(Tools::getValue('from'))) || !Validate::isEmail($from))
 				$this->errors[] = Tools::displayError('Invalid e-mail address');
 			else if (!$message)
@@ -69,7 +69,7 @@ class ContactControllerCore extends FrontController
 				$contact = new Contact($id_contact, $this->context->language->id);
 
 				if (!((
-						$id_customer_thread = (int)Tools::getValue('id_customer_thread')
+						($id_customer_thread = (int)Tools::getValue('id_customer_thread'))
 						&& (int)Db::getInstance()->getValue('
 						SELECT cm.id_customer_thread FROM '._DB_PREFIX_.'customer_thread cm
 						WHERE cm.id_customer_thread = '.(int)$id_customer_thread.' AND cm.id_shop = '.(int)$this->context->shop->id.' AND token = \''.pSQL(Tools::getValue('token')).'\'')
@@ -109,7 +109,7 @@ class ContactControllerCore extends FrontController
 					LEFT JOIN '._DB_PREFIX_.'customer_thread cc on (cm.id_customer_thread = cc.id_customer_thread)
 					WHERE cc.id_customer_thread = '.(int)($id_customer_thread).' AND cc.id_shop = '.(int)$this->context->shop->id.'
 					ORDER BY cm.date_add DESC');
-				if ($old_message == htmlentities($message, ENT_COMPAT, 'UTF-8'))
+				if ($old_message == $message)
 				{
 					$this->context->smarty->assign('alreadySent', 1);
 					$contact->email = '';
@@ -117,11 +117,16 @@ class ContactControllerCore extends FrontController
 				}
 				if (!empty($contact->email))
 				{
+					$id_order = (int)Tools::getValue('id_order', 0);
+					$order = new Order($id_order);
+
 					$mail_var_list = array(
 						'{email}' => $from,
 						'{message}' => Tools::nl2br(stripslashes($message)),
-						'{id_order}' => (int)Tools::getValue('id_order'),
-						'{attached_file}' => $_FILES['fileUpload']['name'] ? $_FILES['fileUpload']['name'] : '');
+						'{id_order}' => $id_order,
+						'{order_name}' => $order->getUniqReference(),
+						'{attached_file}' => isset($_FILES['fileUpload'], $_FILES['fileUpload']['name']) ? $_FILES['fileUpload']['name'] : ''
+					);
 
 					if (Mail::Send($this->context->language->id, 'contact', Mail::l('Message from contact form'),
 						$mail_var_list, $contact->email, $contact->name, $from, ($customer->id ? $customer->firstname.' '.$customer->lastname : ''),
@@ -168,7 +173,7 @@ class ContactControllerCore extends FrontController
 					{
 						$cm = new CustomerMessage();
 						$cm->id_customer_thread = $ct->id;
-						$cm->message = htmlentities($message, ENT_COMPAT, 'UTF-8');
+						$cm->message = Tools::htmlentitiesUTF8($message);
 						if (isset($filename) && rename($_FILES['fileUpload']['tmp_name'], _PS_MODULE_DIR_.'../upload/'.$filename))
 							$cm->file_name = $filename;
 						$cm->ip_address = ip2long($_SERVER['REMOTE_ADDR']);
@@ -195,6 +200,7 @@ class ContactControllerCore extends FrontController
 	{
 		parent::setMedia();
 		$this->addCSS(_THEME_CSS_DIR_.'contact-form.css');
+		$this->addJS(_THEME_JS_DIR_.'contact-form.js');
 	}
 
 	/**
@@ -219,12 +225,18 @@ class ContactControllerCore extends FrontController
 		if ($id_customer_thread = (int)Tools::getValue('id_customer_thread') && $token = Tools::getValue('token'))
 		{
 			$customerThread = Db::getInstance()->getRow('
-			SELECT cm.* FROM '._DB_PREFIX_.'customer_thread cm
-			WHERE cm.id_customer_thread = '.(int)$id_customer_thread.' AND cm.id_shop = '.(int)$this->context->shop->id.' AND token = \''.pSQL($token).'\'');
+				SELECT cm.* 
+				FROM '._DB_PREFIX_.'customer_thread cm
+				WHERE cm.id_customer_thread = '.(int)$id_customer_thread.' 
+				AND cm.id_shop = '.(int)$this->context->shop->id.' 
+				AND token = \''.pSQL($token).'\'
+			');
 			$this->context->smarty->assign('customerThread', $customerThread);
 		}
-		$this->context->smarty->assign(array('contacts' => Contact::getContacts($this->context->language->id),
-		'message' => html_entity_decode(Tools::getValue('message'))
+		
+		$this->context->smarty->assign(array(
+			'contacts' => Contact::getContacts($this->context->language->id),
+			'message' => html_entity_decode(Tools::getValue('message'))
 		));
 
 		$this->setTemplate(_PS_THEME_DIR_.'contact-form.tpl');
@@ -252,18 +264,15 @@ class ContactControllerCore extends FrontController
 				$orders[$row['id_order']] = Tools::displayDate($date[0], $this->context->language->id);
 				$tmp = $order->getProducts();
 				foreach ($tmp as $key => $val)
-					$products[$val['product_id']] = $val['product_name'];
+					$products[$row['id_order']][$val['product_id']] = array('value' => $val['product_id'], 'label' => $val['product_name']);
 			}
 
-			$orderList = '';
+			$order_tab = array();
 			foreach ($orders as $key => $val)
-				$orderList .= '<option value="'.$key.'" '.((int)(Tools::getValue('id_order')) == $key ? 'selected' : '').' >'.$key.' -- '.$val.'</option>';
-			$orderedProductList = '';
-
-			foreach ($products as $key => $val)
-				$orderedProductList .= '<option value="'.$key.'" '.((int)(Tools::getValue('id_product')) == $key ? 'selected' : '').' >'.$val.'</option>';
-			$this->context->smarty->assign('orderList', $orderList);
-			$this->context->smarty->assign('orderedProductList', $orderedProductList);
+				$order_tab[] = array('value' => $key, 'label' => $key.' -- '.$val, 'selected' => (int)(Tools::getValue('id_order')) == $key);
+							
+			$this->context->smarty->assign('orderList', $order_tab);
+			$this->context->smarty->assign('orderedProductList', $products);
 		}
 	}
 }

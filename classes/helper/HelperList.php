@@ -20,7 +20,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 15882 $
+*  @version  Release: $Revision: 17281 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -256,15 +256,7 @@ class HelperListCore extends Helper
 				{
 					// item_id is the product id in a product image context, else it is the image id.
 					$item_id = isset($params['image_id']) ? $tr[$params['image_id']] : $id;
-					// If it's a product image
-					if (isset($tr['id_image']))
-					{
-						$image = new Image((int)$tr['id_image']);
-						$path_to_image = _PS_IMG_DIR_.$params['image'].'/'.$image->getExistingImgPath().'.'.$this->imageType;
-					}
-					else
-						$path_to_image = _PS_IMG_DIR_.$params['image'].'/'.$item_id.(isset($tr['id_image']) ? '-'.(int)$tr['id_image'] : '').'.'.$this->imageType;
-
+					$path_to_image = _PS_IMG_DIR_.$params['image'].'/'.$item_id.(isset($tr['id_image']) ? '-'.(int)$tr['id_image'] : '').'.'.$this->imageType;
 					$this->_list[$index][$key] = ImageManager::thumbnail($path_to_image, $this->table.'_mini_'.$item_id.'.'.$this->imageType, 45, $this->imageType);
 				}
 				else if (isset($params['icon']) && (isset($params['icon'][$tr[$key]]) || isset($params['icon']['default'])))
@@ -479,7 +471,7 @@ class HelperListCore extends Helper
 			self::$cache_lang['Default'] = $this->l('Default', 'Helper');
 
 		$tpl->assign(array_merge($this->tpl_delete_link_vars, array(
-			'href' => Tools::safeOutput($this->currentIndex.'&'.$this->identifier.'='.$id.'&delete'.$this->table.'&token='.($token != null ? $token : $this->token)),
+			'href' => Tools::safeOutput($this->currentIndex).'&'.Tools::safeOutput($this->identifier).'='.(int)$id.'&delete'.Tools::safeOutput($this->table).'&token='.Tools::safeOutput(($token != null ? $token : $this->token)),
 			'action' => self::$cache_lang['Default'],
 			'name' => Tools::safeOutput($name),
 		)));
@@ -505,7 +497,8 @@ class HelperListCore extends Helper
 
 		$total_pages = ceil($this->listTotal / Tools::getValue('pagination', ($default_pagination)));
 
-		if (!$total_pages) $total_pages = 1;
+		if (!$total_pages) 
+			$total_pages = 1;
 
 		$identifier = Tools::getIsset($this->identifier) ? '&'.$this->identifier.'='.(int)Tools::getValue($this->identifier) : '';
 		$order = '';
@@ -539,9 +532,7 @@ class HelperListCore extends Helper
 		{
 			if (!isset($params['type']))
 				$params['type'] = 'text';
-
-			$value = Tools::getValue($this->table.'Filter_'.(array_key_exists('filter_key', $params) ? $params['filter_key'] : $key));
-
+			$value = Context::getContext()->cookie->{$this->table.'Filter_'.(array_key_exists('filter_key', $params) ? $params['filter_key'] : $key)};
 			switch ($params['type'])
 			{
 				case 'bool':
@@ -565,9 +556,9 @@ class HelperListCore extends Helper
 				case 'select':
 					foreach ($params['list'] as $option_value => $option_display)
 					{
-						if (isset($_POST[$this->table.'Filter_'.$params['filter_key']])
-							&& Tools::getValue($this->table.'Filter_'.$params['filter_key']) == $option_value
-							&& Tools::getValue($this->table.'Filter_'.$params['filter_key']) != '')
+						if (isset(Context::getContext()->cookie->{$this->table.'Filter_'.$params['filter_key']})
+							&& Context::getContext()->cookie->{$this->table.'Filter_'.$params['filter_key']} == $option_value
+							&& Context::getContext()->cookie->{$this->table.'Filter_'.$params['filter_key']} != '')
 							$this->fields_list[$key]['select'][$option_value]['selected'] = 'selected';
 					}
 					break;

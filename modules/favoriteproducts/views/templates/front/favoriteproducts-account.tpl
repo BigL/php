@@ -19,7 +19,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 15897 $
+*  @version  Release: $Revision: 16164 $
 *  @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 *}
@@ -33,10 +33,11 @@ $('document').ready(function()
 		var parent = $(this).parent().parent();
 
 		$.ajax({
-			url: "{$link->getModuleLink('favoriteproducts', 'actions', ['process' => 'remove'], true)|escape:'htmlall':'UTF-8'}",
+			url: "{$link->getModuleLink('favoriteproducts', 'actions', ['process' => 'remove'], true)}",
 			type: "POST",
 			data: {
-				'id_product': idFavoriteProduct
+				'id_product': idFavoriteProduct,
+				'ajax': true
 			},
 			success: function(result)
 			{

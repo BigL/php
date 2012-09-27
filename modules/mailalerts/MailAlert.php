@@ -44,18 +44,18 @@ class MailAlert extends ObjectModel
 		'table' => 'mailalert_customer_oos',
 		'primary' => 'id_customer',
 		'fields' => array(
-					'id_customer' =>	    array('type' => self::TYPE_INT, 'validate' => 'isUnsignedInt', 'required' => true),
-					'customer_email' =>	    array('type' => self::TYPE_STRING, 'validate' => 'isEmail', 'required' => true),
-					'id_product' =>		    array('type' => self::TYPE_INT, 'validate' => 'isUnsignedInt', 'required' => true),
-					'id_product_attribute' =>   array('type' => self::TYPE_INT, 'validate' => 'isUnsignedInt', 'required' => true),
-					'id_shop' =>		    array('type' => self::TYPE_INT, 'validate' => 'isUnsignedInt', 'required' => true)
+			'id_customer' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedInt', 'required' => true),
+			'customer_email' => array('type' => self::TYPE_STRING, 'validate' => 'isEmail', 'required' => true),
+			'id_product' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedInt', 'required' => true),
+			'id_product_attribute' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedInt', 'required' => true),
+			'id_shop' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedInt', 'required' => true)
 		),
 	);
 
 	public static function customerHasNotification($id_customer, $id_product, $id_product_attribute, $id_shop = null)
 	{
 		if ($id_shop == null)
-		    $id_shop = Context::getContext()->shop->id;
+			$id_shop = Context::getContext()->shop->id;
 
 		$customer = new Customer($id_customer);
 		$customer_email = $customer->email;
@@ -75,8 +75,7 @@ class MailAlert extends ObjectModel
 	{
 		$sql = '
 			DELETE FROM `'._DB_PREFIX_.self::$definition['table'].'`
-			WHERE '.(($id_customer > 0) ? '(`customer_email` = \''.pSQL($customer_email).'\'
-			OR `id_customer` = '.(int)$id_customer.')' :
+			WHERE '.(($id_customer > 0) ? '(`customer_email` = \''.pSQL($customer_email).'\' OR `id_customer` = '.(int)$id_customer.')' :
 			'`customer_email` = \''.pSQL($customer_email).'\'').
 			' AND `id_product` = '.(int)$id_product.'
 			AND `id_product_attribute` = '.(int)$id_product_attribute;
@@ -109,7 +108,7 @@ class MailAlert extends ObjectModel
 				continue;
 
 			if (isset($products[$i]['id_product_attribute']) &&
-			    Validate::isUnsignedInt($products[$i]['id_product_attribute']))
+				Validate::isUnsignedInt($products[$i]['id_product_attribute']))
 			{
 				$attributes = self::getProductAttributeCombination($products[$i]['id_product_attribute'], $id_lang);
 				$products[$i]['attributes_small'] = '';
@@ -187,7 +186,7 @@ class MailAlert extends ObjectModel
 			$iso = Language::getIsoById($id_lang);
 
 			if (file_exists(dirname(__FILE__).'/mails/'.$iso.'/customer_qty.txt') &&
-			    file_exists(dirname(__FILE__).'/mails/'.$iso.'/customer_qty.html'))
+				file_exists(dirname(__FILE__).'/mails/'.$iso.'/customer_qty.html'))
 				Mail::Send((int)Configuration::get('PS_LANG_DEFAULT'), 'customer_qty', Mail::l('Product available', $id_lang), $templateVars, strval($customer_email), NULL, strval(Configuration::get('PS_SHOP_EMAIL')), strval(Configuration::get('PS_SHOP_NAME')), NULL, NULL, dirname(__FILE__).'/mails/');
 
 			Hook::exec('actionModuleMailAlertSendCustomer', array('product' => (is_array($product->name) ? $product->name[$id_lang] : $product->name), 'link' => $link->getProductLink($product)));
@@ -212,12 +211,11 @@ class MailAlert extends ObjectModel
 		$sql = '
 			SELECT ma.`id_product`, p.`quantity` AS product_quantity, pl.`name`, ma.`id_product_attribute`
 			FROM `'._DB_PREFIX_.self::$definition['table'].'` ma
-			JOIN `'._DB_PREFIX_.'product` p ON p.`id_product` = ma.`id_product`
+			JOIN `'._DB_PREFIX_.'product` p ON (p.`id_product` = ma.`id_product`)
 			'.Shop::addSqlAssociation('product', 'p').'
-			JOIN `'._DB_PREFIX_.'product_lang` pl ON pl.`id_product` = ma.`id_product`
+			LEFT JOIN `'._DB_PREFIX_.'product_lang` pl ON (pl.`id_product` = p.`id_product` AND pl.id_shop IN ('.implode(', ', Shop::getContextListShopID(false)).'))
 			WHERE product_shop.`active` = 1
-			AND (ma.`id_customer` = '.(int)$customer->id.'
-			OR ma.`customer_email` = \''.pSQL($customer->email).'\')
+			AND (ma.`id_customer` = '.(int)$customer->id.' OR ma.`customer_email` = \''.pSQL($customer->email).'\')
 			AND pl.`id_lang` = '.(int)$id_lang.Shop::addSqlRestriction(false, 'ma');
 
 		return Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS($sql);

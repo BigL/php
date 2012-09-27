@@ -68,7 +68,7 @@ class AdminCustomersControllerCore extends AdminController
 				'title' => $this->l('ID'),
 				'align' => 'center',
 				'width' => 20
- 			),
+			),
 			'id_gender' => array(
 				'title' => $this->l('Gender'),
 				'width' => 70,
@@ -78,7 +78,7 @@ class AdminCustomersControllerCore extends AdminController
 				'type' => 'select',
 				'list' => $genders,
 				'filter_key' => 'a!id_gender',
- 			),
+			),
 			'lastname' => array(
 				'title' => $this->l('Last Name'),
 				'width' => 'auto'
@@ -148,7 +148,7 @@ class AdminCustomersControllerCore extends AdminController
 
 	public function postProcess()
 	{
-		if (!$this->can_add_customer && $this->display)
+		if (!$this->can_add_customer && $this->display == 'add')
 			$this->redirect_after = $this->context->link->getAdminLink('AdminCustomers');
 
 		parent::postProcess();
@@ -731,11 +731,12 @@ class AdminCustomersControllerCore extends AdminController
 		{
 			$this->errors[] = Tools::displayError('An account already exists for this e-mail address:').' '.$customer_email;
 			$this->display = 'edit';
+			return $customer;
 		}
 		elseif ($customer = parent::processAdd())
 		{
 			$this->context->smarty->assign('new_customer', $customer);
-			return true;
+			return $customer;
 		}
 		return false;
 	}
@@ -767,6 +768,10 @@ class AdminCustomersControllerCore extends AdminController
 		// Check that default group is selected
 		if (!is_array(Tools::getValue('groupBox')) || !in_array(Tools::getValue('id_default_group'), Tools::getValue('groupBox')))
 			$this->errors[] = Tools::displayError('Default customer group must be selected in group box.');
+
+		// Check the requires fields which are settings in the BO
+		$customer = new Customer();
+		$this->errors = array_merge($this->errors, $customer->validateFieldsRequiredDatabase());
 
 		return parent::processSave();
 	}
@@ -881,6 +886,28 @@ class AdminCustomersControllerCore extends AdminController
 			$to_return = array('found' => false);
 
 		$this->content = Tools::jsonEncode($to_return);
+	}
+	
+	/**
+	 * Uodate the customer note
+	 * 
+	 * @return void
+	 */
+	public function ajaxProcessUpdateCustomerNote()
+	{
+		if ($this->tabAccess['edit'] === '1')
+		{
+			$note = Tools::htmlentitiesDecodeUTF8(Tools::getValue('note'));
+			$customer = new Customer((int)Tools::getValue('id_customer'));
+			if (!Validate::isLoadedObject($customer))
+				die ('error:update');
+			if (!empty($note) && !Validate::isCleanHtml($note))
+				die ('error:validation');
+			$customer->note = $note;
+			if (!$customer->update())
+				die ('error:update');
+			die('ok');
+		}
 	}
 }
 

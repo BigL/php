@@ -370,7 +370,7 @@ class ProductComments extends Module
 					<br /><table class="table" border="0" cellspacing="0" cellpadding="0">
 					<thead>
 					<tr>
-						<th><input class="noborder" type="checkbox" name="id_product_comment[]" onclick="checkDelBoxes(this.form, \'id_product_comment[]\', this.checked)" /></th>
+						<th><input class="noborder" type="checkbox" onclick="checkDelBoxes(this.form, \'id_product_comment[]\', this.checked)" /></th>
 						<th style="width:150px;">'.$this->l('Author').'</th>
 						<th style="width:550px;">'.$this->l('Comment').'</th>
 						<th style="width:150px;">'.$this->l('Product name').'</th>
@@ -447,7 +447,7 @@ class ProductComments extends Module
 					</form>';
 				}
 				else
-					$this->_html .= $this->l('No reported comment at this time.');
+					$this->_html .= $this->l('No reported comments at this time.');
 		$this->_html .= '</fieldset><br />';
 	}
 
@@ -755,7 +755,8 @@ class ProductComments extends Module
 			'productcomment_cover' => (int)Tools::getValue('id_product').'-'.(int)$image['id_image'],
 			'mediumSize' => Image::getSize('medium'),
 			'nbComments' => (int)ProductComment::getCommentNumber((int)Tools::getValue('id_product')),
-			'productcomments_controller_url' => $this->context->link->getModuleLink('productcomments')
+			'productcomments_controller_url' => $this->context->link->getModuleLink('productcomments'),
+			'productcomments_url_rewriting_activated' => Configuration::get('PS_REWRITING_SETTINGS', 0)
 		));
 
 		$this->context->controller->pagination((int)ProductComment::getCommentNumber((int)Tools::getValue('id_product')));
@@ -799,7 +800,7 @@ class ProductComments extends Module
 						$list_grades[$criterion['id_product_comment_criterion']] = $criterion['name'];
 				}
 
-				$list_product_average[$id_product] = $grade_total / count($criterion);
+				$list_product_average[$id_product] = $grade_total / count($criterions);
 				$list_product_comment[$id_product] = ProductComment::getByProduct($id_product, 0, 3);
 			}
 		}

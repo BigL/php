@@ -63,7 +63,6 @@ class CombinationCore extends ObjectModel
 	public static $definition = array(
 		'table' => 'product_attribute',
 		'primary' => 'id_product_attribute',
-		'multishop' => true,
 		'fields' => array(
 			'id_product' => 		array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
 			'location' => 			array('type' => self::TYPE_STRING, 'validate' => 'isGenericName', 'size' => 64),
@@ -101,7 +100,10 @@ class CombinationCore extends ObjectModel
 	{
 		if (!parent::delete())
 			return false;
-
+			
+		// Removes the product from StockAvailable, for the current shop
+		StockAvailable::removeProductFromStockAvailable((int)$this->id_product, (int)$this->id);
+		
 		if (!$this->hasMultishopEntries() && !$this->deleteAssociations())
 			return false;
 		return true;
@@ -138,7 +140,7 @@ class CombinationCore extends ObjectModel
 		$ids_attributes = array();
 		foreach ($values as $value)
 			$ids_attributes[] = $value['id'];
-		return $this->setAttributes($values);
+		return $this->setAttributes($ids_attributes);
 	}
 
 	public function getWsProductOptionValues()

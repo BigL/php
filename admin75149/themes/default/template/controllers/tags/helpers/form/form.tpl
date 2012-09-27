@@ -19,7 +19,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 14143 $
+*  @version  Release: $Revision: 17303 $
 *  @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 *}
@@ -31,30 +31,30 @@
 	<h3>{l s='Products'}</h3>
 	<table class="double_select">
 		<tr>
-			<td>
-				<select multiple id="select_left" name="products[]">
-					{foreach from=$field.products item='product'}
-					<option value="{$product.id_product}">{$product.name}</option>
-					{/foreach}
-				</select>
-				<span class="hint" name="help_box">{l s='Double-click to move to other column'}<span class="hint-pointer">&nbsp;</span></span>
-				<br /><br />
-				<a href="#" id="move_to_right" class="multiple_select_remove">
-					{l s='Remove'} &gt;&gt;
-				</a>
-			</td>
 			<td style="padding-left:20px;">
-				<select multiple id="select_right">
+				<select multiple id="select_left">
 					{foreach from=$field.products_unselected item='product'}
 					<option value="{$product.id_product}">{$product.name}</option>
 					{/foreach}
 				</select>
 				<span class="hint" name="help_box">{l s='Double-click to move to other column'}<span class="hint-pointer">&nbsp;</span></span>
 				<br /><br />
-				<a href="#" id="move_to_left" class="multiple_select_add">
-					&lt;&lt; {l s='Add'}
+				<a href="#" id="move_to_right" class="multiple_select_add">
+					{l s='Add'} &gt;&gt;
 				</a>
 			</div>
+			</td>
+			<td>
+				<select multiple id="select_right" name="products[]">
+					{foreach from=$field.products item='product'}
+					<option selected="selected" value="{$product.id_product}">{$product.name}</option>
+					{/foreach}
+				</select>
+				<span class="hint" name="help_box">{l s='Double-click to move to other column'}<span class="hint-pointer">&nbsp;</span></span>
+				<br /><br />
+				<a href="#" id="move_to_left" class="multiple_select_remove">
+					&lt;&lt; {l s='Remove'}
+				</a>
 			</td>
 		</tr>
 	</table>
@@ -78,7 +78,7 @@
 	});
 	$('#tag_form').submit(function()
 	{
-		$('#select_left option').each(function(i){
+		$('#select_right option').each(function(i){
 			$(this).attr("selected", "selected");
 		});
 	});

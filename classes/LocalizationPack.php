@@ -58,7 +58,12 @@ class LocalizationPackCore
 				$res &= $this->_installLanguages($xml, $install_mode);
 
 			if ($res && isset($this->iso_code_lang))
-				Configuration::updateValue('PS_LANG_DEFAULT', (int)Language::getIdByIso($this->iso_code_lang));
+			{
+				if (!$id_lang = (int)Language::getIdByIso($this->iso_code_lang))
+					$id_lang = 1;
+				if (!$install_mode)
+					Configuration::updateValue('PS_LANG_DEFAULT', $id_lang);
+			}
 
 			if ($install_mode && $res && isset($this->iso_currency))
 			{
@@ -302,9 +307,9 @@ class LocalizationPackCore
 					$errstr = '';
 					if (@fsockopen('api.prestashop.com', 80, $errno, $errstr, 10))
 					{
-						if ($lang_pack = Tools::jsonDecode(Tools::file_get_contents('http://api.prestashop.com/download/lang_packs/get_language_pack.php?version='._PS_VERSION_.'&iso_lang='.$attributes['iso_code'])))
+						if ($lang_pack = Tools::jsonDecode(Tools::file_get_contents('http://www.prestashop.com/download/lang_packs/get_language_pack.php?version='._PS_VERSION_.'&iso_lang='.$attributes['iso_code'])))
 						{
-							if ($content = Tools::file_get_contents('http://api.prestashop.com/download/lang_packs/gzip/'.$lang_pack->version.'/'.$attributes['iso_code'].'.gzip'))
+							if ($content = Tools::file_get_contents('http://translations.prestashop.com/download/lang_packs/gzip/'.$lang_pack->version.'/'.$attributes['iso_code'].'.gzip'))
 							{
 								$file = _PS_TRANSLATIONS_DIR_.$attributes['iso_code'].'.gzip';
 								if (file_put_contents($file, $content))

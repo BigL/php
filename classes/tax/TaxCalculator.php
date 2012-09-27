@@ -20,7 +20,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 13573 $
+*  @version  Release: $Revision: 16386 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -132,7 +132,7 @@ class TaxCalculatorCore
 			if ($this->computation_method == TaxCalculator::ONE_AFTER_ANOTHER_METHOD)
 			{
 				$taxes_amounts[$tax->id] = $price_te * (abs($tax->rate) / 100);
-				$price_te = $price_te + $taxes_amounts[$tax->rate];
+				$price_te = $price_te + $taxes_amounts[$tax->id];
 			}
 			else
 				$taxes_amounts[$tax->id] = ($price_te * (abs($tax->rate) / 100));

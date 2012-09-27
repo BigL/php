@@ -20,7 +20,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 14342 $
+*  @version  Release: $Revision: 16936 $
 *  @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -122,9 +122,7 @@ class HTMLTemplateSupplyOrderFormCore extends HTMLTemplate
 	 */
 	public function getHeader()
 	{
-		$shop_name = '';
-		if (Validate::isLoadedObject($this->shop))
-			$shop_name = $this->shop->name;
+		$shop_name = Configuration::get('PS_SHOP_NAME');
 
 		$this->smarty->assign(array(
 			'logo_path' => $this->getLogo(),

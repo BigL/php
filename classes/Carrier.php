@@ -149,7 +149,7 @@ class CarrierCore extends ObjectModel
 
 	protected static $cache_tax_rule = array();
 
-	protected	$webserviceParameters = array(
+	protected $webserviceParameters = array(
 		'fields' => array(
 			'deleted' => array(),
 			'is_module' => array(),
@@ -183,11 +183,9 @@ class CarrierCore extends ObjectModel
 			$this->position = Carrier::getHigherPosition() + 1;
 		if (!parent::add($autodate, $null_values) || !Validate::isLoadedObject($this))
 			return false;
-		if (!Db::getInstance()->executeS('SELECT `id_carrier` FROM `'._DB_PREFIX_.$this->def['table'].'` WHERE `deleted` = 0'))
+		if (!$count = Db::getInstance()->getValue('SELECT count(`id_carrier`) FROM `'._DB_PREFIX_.$this->def['table'].'` WHERE `deleted` = 0'))
 			return false;
-		if (!$num_rows = Db::getInstance()->NumRows())
-			return false;
-		if ((int)$num_rows == 1)
+		if ($count == 1)
 			Configuration::updateValue('PS_CARRIER_DEFAULT', (int)$this->id);
 
 		// Register reference
@@ -596,7 +594,7 @@ class CarrierCore extends ObjectModel
 
 	public static function checkCarrierZone($id_carrier, $id_zone)
 	{
-		return Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS('
+		return Db::getInstance(_PS_USE_SQL_SLAVE_)->getValue('
 			SELECT c.`id_carrier`
 			FROM `'._DB_PREFIX_.'carrier` c
 			LEFT JOIN `'._DB_PREFIX_.'carrier_zone` cz ON (cz.`id_carrier` = c.`id_carrier`)
@@ -849,6 +847,8 @@ class CarrierCore extends ObjectModel
 												(SELECT '.(int)$this->id.', `id_tax_rules_group`, `id_shop`
 													FROM `'._DB_PREFIX_.'carrier_tax_rules_group_shop`
 													WHERE `id_carrier`='.(int)$old_id.')');
+		// Update warehouse_carriers
+		Db::getInstance()->execute('UPDATE '._DB_PREFIX_.'warehouse_carrier SET id_carrier='.(int)$this->id.' WHERE id_carrier='.(int)$old_id);
 	}
 
 	/**
@@ -991,9 +991,21 @@ class CarrierCore extends ObjectModel
 	 */
 	public function getTaxesRate(Address $address)
 	{
-		$tax_manager = TaxManagerFactory::getManager($address, $this->getIdTaxRulesGroup());
-		$tax_calculator = $tax_manager->getTaxCalculator();
+		$tax_calculator = $this->getTaxCalculator($address);
 		return $tax_calculator->getTotalRate();
+	}
+
+	/**
+	 * Returns the taxes calculator associated to the carrier
+	 *
+	 * @since 1.5
+	 * @param Address $address
+	 * @return
+	 */
+	public function getTaxCalculator(Address $address)
+	{
+		$tax_manager = TaxManagerFactory::getManager($address, $this->getIdTaxRulesGroup());
+		return $tax_manager->getTaxCalculator();
 	}
 
 	/**
@@ -1144,18 +1156,22 @@ class CarrierCore extends ObjectModel
 		$query->select('id_carrier');
 		$query->from('product_carrier', 'pc');
 		$query->innerJoin('carrier', 'c', 'c.id_reference = pc.id_carrier_reference AND c.deleted = 0');
-		$query->where('id_product = '.(int)$product->id);
-		$query->where('id_shop = '.(int)$id_shop);
+		$query->where('pc.id_product = '.(int)$product->id);
+		$query->where('pc.id_shop = '.(int)$id_shop);
+
 		$carriers = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS($query);
-		
+
 		if (!empty($carriers))
 		{
+			//the product is linked with carriers
 			$carrier_list = array();
-			foreach ($carriers as $carrier)
+			foreach ($carriers as $carrier) //check if the linked carriers are available in current zone
 				if (Carrier::checkCarrierZone($carrier['id_carrier'], $id_zone))
 					$carrier_list[] = $carrier['id_carrier'];
 			if (!empty($carrier_list))
 				return $carrier_list;
+			else
+				return array();//no linked carrier are available for this zone
 		}
 
 		$carrier_list = array();

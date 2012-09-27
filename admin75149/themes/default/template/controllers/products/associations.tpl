@@ -19,7 +19,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 15391 $
+*  @version  Release: $Revision: 16903 $
 *  @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 *}
@@ -51,7 +51,7 @@
 		<tr>
 			<td></td>
 			<td class="col-right">
-					<a class="button bt-icon confirm_leave" href="{$link->getAdminLink('AdminCategories')}&addcategory">
+					<a class="button bt-icon confirm_leave" href="{$link->getAdminLink('AdminCategories')|escape:'htmlall':'UTF-8'}&addcategory">
 						<img src="../img/admin/add.gif" alt="{l s='Create new category'}" title="{l s='Create new category'}" />
 						<span>{l s='Create new category'}</span>
 					</a>
@@ -110,7 +110,7 @@
 				{/if}
 				<option disabled="disabled">----------</option>
 			</select>&nbsp;&nbsp;&nbsp;
-			<a class="button bt-icon confirm_leave" style="margin-bottom:0" href="{$link->getAdminLink('AdminManufacturers')}&addmanufacturer">
+			<a class="button bt-icon confirm_leave" style="margin-bottom:0" href="{$link->getAdminLink('AdminManufacturers')|escape:'htmlall':'UTF-8'}&addmanufacturer">
 				<img src="../img/admin/add.gif" alt="{l s='Create new manufacturer'}" title="{l s='Create new manufacturer'}" />
 				<span>{l s='Create new manufacturer'}</span>
 			</a>

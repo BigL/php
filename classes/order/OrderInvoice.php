@@ -27,6 +27,10 @@
 
 class OrderInvoiceCore extends ObjectModel
 {
+	const TAX_EXCL = 0;
+	const TAX_INCL = 1;
+	const DETAIL = 2;
+	
 	/** @var integer */
 	public $id_order;
 
@@ -63,6 +67,9 @@ class OrderInvoiceCore extends ObjectModel
 	/** @var float */
 	public $total_shipping_tax_incl;
 
+	/** @var int */
+	public $shipping_tax_computation_method;
+
 	/** @var float */
 	public $total_wrapping_tax_excl;
 
@@ -97,6 +104,7 @@ class OrderInvoiceCore extends ObjectModel
 			'total_products_wt' =>		array('type' => self::TYPE_FLOAT),
 			'total_shipping_tax_excl' =>array('type' => self::TYPE_FLOAT),
 			'total_shipping_tax_incl' =>array('type' => self::TYPE_FLOAT),
+			'shipping_tax_computation_method' => array('type' => self::TYPE_INT),
 			'total_wrapping_tax_excl' =>array('type' => self::TYPE_FLOAT),
 			'total_wrapping_tax_incl' =>array('type' => self::TYPE_FLOAT),
 			'note' => 					array('type' => self::TYPE_STRING, 'validate' => 'isCleanHtml', 'size' => 65000),
@@ -111,7 +119,7 @@ class OrderInvoiceCore extends ObjectModel
 		FROM `'._DB_PREFIX_.'order_detail` od
 		LEFT JOIN `'._DB_PREFIX_.'product` p
 		ON p.id_product = od.product_id
-		'.Shop::addSqlAssociation('product', 'p').'
+		LEFT JOIN `'._DB_PREFIX_.'product_shop` ps ON (ps.id_product = p.id_product AND ps.id_shop = od.id_shop)
 		WHERE od.`id_order` = '.(int)$this->id_order.'
 		AND od.`id_order_invoice` = '.(int)$this->id);
 	}
@@ -251,7 +259,7 @@ class OrderInvoiceCore extends ObjectModel
 		{
 			// sum by taxes
 			$taxes_infos = Db::getInstance()->executeS('
-			SELECT odt.`id_order_detail`, t.`name`, t.`rate`, SUM(`total_amount`) AS `total_amount`
+			SELECT odt.`id_order_detail`, t.`rate` AS `name`, t.`rate`, SUM(`total_amount`) AS `total_amount`
 			FROM `'._DB_PREFIX_.'order_detail_tax` odt
 			LEFT JOIN `'._DB_PREFIX_.'tax` t ON (t.`id_tax` = odt.`id_tax`)
 			LEFT JOIN `'._DB_PREFIX_.'order_detail` od ON (od.`id_order_detail` = odt.`id_order_detail`)
@@ -264,9 +272,30 @@ class OrderInvoiceCore extends ObjectModel
 			$tmp_tax_infos = array();
 			foreach ($taxes_infos as $tax_infos)
 			{
-				$tmp_tax_infos[$tax_infos['rate']]['total_amount'] = $tax_infos['tax_amount'];
+				$tmp_tax_infos[$tax_infos['rate']]['total_amount'] = $tax_infos['total_amount'];
 				$tmp_tax_infos[$tax_infos['rate']]['name'] = $tax_infos['name'];
 			}
+
+			$shipping_taxes = Db::getInstance()->executeS('
+			SELECT *
+			FROM `'._DB_PREFIX_.'order_invoice_tax` od
+			LEFT JOIN `'._DB_PREFIX_.'tax` t ON (t.`id_tax` = od.`id_tax`)
+			WHERE `id_order_invoice` = '.(int)$this->id
+			);
+
+			foreach ($shipping_taxes as $tax_infos)
+			{
+				if (!isset($tmp_tax_infos[$tax_infos['rate']]))
+				{
+					$tmp_tax_infos[$tax_infos['rate']]['total_amount'] = 0;
+					$tmp_tax_infos[$tax_infos['rate']]['name'] = 0;
+				}
+
+				$tmp_tax_infos[$tax_infos['rate']]['total_amount'] += $tax_infos['amount'];
+				$tmp_tax_infos[$tax_infos['rate']]['name'] += $tax_infos['rate'];
+			}
+
+
 		}
 		else
 		{
@@ -301,8 +330,6 @@ class OrderInvoiceCore extends ObjectModel
 			}
 		}
 
-
-
 		return $tmp_tax_infos;
 	}
 
@@ -316,12 +343,17 @@ class OrderInvoiceCore extends ObjectModel
 	{
 		$taxes_breakdown = array();
 
+		// shipping cost are added in the product taxes breakdown
+		if ($this->useOneAfterAnotherTaxComputationMethod())
+			return $taxes_breakdown;
+
 		$shipping_tax_amount = $this->total_shipping_tax_incl - $this->total_shipping_tax_excl;
 
 		if ($shipping_tax_amount > 0)
 			$taxes_breakdown[] = array(
 				'rate' => $order->carrier_tax_rate,
-				'total_amount' => $shipping_tax_amount
+				'total_amount' => $shipping_tax_amount,
+				'total_tax_excl' => $this->total_shipping_tax_excl
 			);
 
 		return $taxes_breakdown;
@@ -495,7 +527,68 @@ class OrderInvoiceCore extends ObjectModel
 	 */
 	public function getRestPaid()
 	{
-		return round($this->total_paid_tax_incl - $this->getTotalPaid(), 2);
+		return round($this->total_paid_tax_incl + $this->getSiblingTotal() - $this->getTotalPaid(), 2);
+	}
+	
+
+	/**
+	 * Return collection of order invoice object linked to the payments of the current order invoice object
+	 * 
+	 * @since 1.5.0.14
+	 */
+	public function getSibling()
+	{
+		$query = new DbQuery();
+		$query->select('oip2.id_order_invoice');
+		$query->from('order_invoice_payment', 'oip1');
+		$query->innerJoin('order_invoice_payment', 'oip2',
+			'oip2.id_order_payment = oip1.id_order_payment AND oip2.id_order_invoice <> oip1.id_order_invoice');
+		$query->where('oip1.id_order_invoice = '.$this->id);
+		
+		$invoices = Db::getInstance()->executeS($query);
+		if (!$invoices)
+			return array();
+		
+		$invoice_list = array();
+		foreach ($invoices as $invoice)
+			$invoice_list[] = $invoice['id_order_invoice'];
+		
+		$payments = new Collection('OrderInvoice');
+		$payments->where('id_order_invoice', 'IN', $invoice_list);
+		
+		return $payments;
+	}
+	
+
+	/**
+	 * Return total to paid of sibling invoices
+	 * 
+	 * @param int $mod TAX_EXCL, TAX_INCL, DETAIL
+	 * 
+	 * @since 1.5.0.14
+	 */
+	public function getSiblingTotal($mod = OrderInvoice::TAX_INCL)
+	{
+		$query = new DbQuery();
+		$query->select('SUM(oi.total_paid_tax_incl) as total_paid_tax_incl, SUM(oi.total_paid_tax_excl) as total_paid_tax_excl');
+		$query->from('order_invoice_payment', 'oip1');
+		$query->innerJoin('order_invoice_payment', 'oip2',
+			'oip2.id_order_payment = oip1.id_order_payment AND oip2.id_order_invoice <> oip1.id_order_invoice');
+		$query->leftJoin('order_invoice', 'oi',
+			'oi.id_order_invoice = oip2.id_order_invoice');
+		$query->where('oip1.id_order_invoice = '.$this->id);
+		
+		$row = Db::getInstance()->getRow($query);
+		
+		switch ($mod)
+		{
+			case OrderInvoice::TAX_EXCL:
+				return $row['total_paid_tax_excl'];
+			case OrderInvoice::TAX_INCL:
+				return $row['total_paid_tax_incl'];
+			default:
+				return $row;
+		}
 	}
 
 	/**
@@ -558,5 +651,19 @@ class OrderInvoiceCore extends ObjectModel
 	public function getInvoiceNumberFormatted($id_lang)
 	{
 		return '#'.Configuration::get('PS_INVOICE_PREFIX', $id_lang).sprintf('%06d', $this->number);
+	}
+
+	public function saveCarrierTaxCalculator(array $taxes_amount)
+	{
+		$is_correct = true;
+		foreach ($taxes_amount as $id_tax => $amount)
+		{
+			$sql = 'INSERT INTO `'._DB_PREFIX_.'order_invoice_tax` (`id_order_invoice`, `type`, `id_tax`, `amount`)
+					VALUES ('.(int)$this->id.', \'shipping\', '.(int)$id_tax.', '.(float)$amount.')';
+
+			$is_correct &= Db::getInstance()->execute($sql);
+		}
+
+		return $is_correct;
 	}
 }

@@ -288,14 +288,14 @@ class ParentOrderControllerCore extends FrontController
 		foreach ($summary['products'] as $key => &$product)
 		{
 			$product['quantity'] = $product['cart_quantity'];// for compatibility with 1.2 themes
-			$product['price_without_specific_price'] = Product::getPriceStatic($product['id_product'], !Product::getTaxCalculationMethod(), $product['id_product_attribute'], 2);
+			$product['price_without_specific_price'] = Product::getPriceStatic($product['id_product'], !Product::getTaxCalculationMethod(), $product['id_product_attribute'], 2, null, false, false);
 			if (Product::getTaxCalculationMethod())
 				$product['is_discounted'] = $product['price_without_specific_price'] != $product['price'];
 			else
 				$product['is_discounted'] = $product['price_without_specific_price'] != $product['price_wt'];
 		}
 		
-		$show_option_allow_sparate_package = !$this->context->cart->isAllProductsInStock(true)
+		$show_option_allow_separate_package = !$this->context->cart->isAllProductsInStock(true)
 			&& Configuration::get('PS_SHIP_WHEN_AVAILABLE');
 
 		$this->context->smarty->assign($summary);
@@ -315,7 +315,7 @@ class ParentOrderControllerCore extends FrontController
 			'currencyRate' => $this->context->currency->conversion_rate,
 			'currencyFormat' => $this->context->currency->format,
 			'currencyBlank' => $this->context->currency->blank,
-			'show_option_allow_sparate_package' => $show_option_allow_sparate_package,
+			'show_option_allow_separate_package' => $show_option_allow_separate_package,
 				
 		));
 
@@ -334,7 +334,7 @@ class ParentOrderControllerCore extends FrontController
 			Tools::redirect('');
 		}
 		else if (!Customer::getAddressesTotalById($this->context->customer->id))
-			Tools::redirect('index.php?controller=address&back=order.php&step=1&multi-shipping='.(int)Tools::getValue('multi-shipping'));
+			Tools::redirect('index.php?controller=address&back='.urlencode('order.php?step=1&multi-shipping='.(int)Tools::getValue('multi-shipping')));
 		$customer = $this->context->customer;
 		if (Validate::isLoadedObject($customer))
 		{
@@ -406,21 +406,22 @@ class ParentOrderControllerCore extends FrontController
 		$carriers = $this->context->cart->simulateCarriersOutput();
 		$checked = $this->context->cart->simulateCarrierSelectedOutput();
 		$delivery_option_list = $this->context->cart->getDeliveryOptionList();
+		$this->setDefaultCarrierSelection($this->context->cart->getDeliveryOptionList());
 		
 		$this->context->smarty->assign(array(
 			'address_collection' => $this->context->cart->getAddressCollection(),
 			'delivery_option_list' => $delivery_option_list,
 			'carriers' => $carriers,
 			'checked' => $checked,
-			'delivery_option' => $this->context->cart->getDeliveryOption(null, true)
+			'delivery_option' => $this->context->cart->getDeliveryOption(null, false)
 		));
-		
+
 		$vars = array(
 			'HOOK_BEFORECARRIER' => Hook::exec('displayBeforeCarrier', array(
 				'carriers' => $carriers,
 				'checked' => $checked,
 				'delivery_option_list' => $delivery_option_list,
-				'delivery_option' => $this->context->cart->getDeliveryOption(null, true)
+				'delivery_option' => $this->context->cart->getDeliveryOption(null, false)
 			))
 		);
 		
@@ -456,7 +457,7 @@ class ParentOrderControllerCore extends FrontController
 			'carriers' => $this->context->cart->simulateCarriersOutput(),
 			'checked' => $this->context->cart->simulateCarrierSelectedOutput(),
 			'address_collection' => $this->context->cart->getAddressCollection(),
-			'delivery_option' => $this->context->cart->getDeliveryOption(null, true),
+			'delivery_option' => $this->context->cart->getDeliveryOption(null, false),
 			'gift_wrapping_price' => (float)(Configuration::get('PS_GIFT_WRAPPING_PRICE')),
 			'total_wrapping_cost' => Tools::convertPrice($wrapping_fees_tax_inc, $this->context->currency),
 			'total_wrapping_tax_exc_cost' => Tools::convertPrice($wrapping_fees, $this->context->currency)));
@@ -492,28 +493,8 @@ class ParentOrderControllerCore extends FrontController
 	 */
 	protected function setDefaultCarrierSelection($carriers)
 	{
-		if (count($carriers))
-		{
-			$defaultCarrierIsPresent = false;
-			if ((int)$this->context->cart->id_carrier != 0)
-				foreach ($carriers as $carrier)
-					if ($carrier['id_carrier'] == (int)$this->context->cart->id_carrier)
-						$defaultCarrierIsPresent = true;
-			if (!$defaultCarrierIsPresent)
-				foreach ($carriers as $carrier)
-					if ($carrier['id_carrier'] == (int)Configuration::get('PS_CARRIER_DEFAULT'))
-					{
-						$defaultCarrierIsPresent = true;
-						$this->context->cart->id_carrier = (int)$carrier['id_carrier'];
-					}
-			if (!$defaultCarrierIsPresent)
-				$this->context->cart->id_carrier = (int)$carriers[0]['id_carrier'];
-		}
-		else
-			$this->context->cart->setDeliveryOption(null);
-		if ($this->context->cart->update())
-			return $this->context->cart->id_carrier;
-		return 0;
+		if (!$this->context->cart->getDeliveryOption(null, true))		
+			$this->context->cart->setDeliveryOption($this->context->cart->getDeliveryOption());
 	}
 
 	/**

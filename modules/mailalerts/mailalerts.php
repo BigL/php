@@ -49,7 +49,7 @@ class MailAlerts extends Module
 		$this->tab = 'administration';
 		$this->version = '2.4';
 		$this->author = 'PrestaShop';
-        $this->need_instance = 0;
+		$this->need_instance = 0;
 
 		parent::__construct();
 
@@ -159,7 +159,7 @@ class MailAlerts extends Module
 					$email = trim($email);
 					if (!empty($email) && !Validate::isEmail($email))
 					{
-						$errors[] = $this->l('Invalid e-mail:').' '.$email;
+						$errors[] = $this->l('Invalid e-mail:').' '.Tools::safeOutput($email);
 						break;
 					}
 					else if (!empty($email) && count($email) > 0)
@@ -224,7 +224,7 @@ class MailAlerts extends Module
 				</div>
 				<label>'.$this->l('Threshold:').'</label>
 				<div class="margin-form">
-					<input type="text" name="MA_LAST_QTIES" value="'.(Tools::getValue('MA_LAST_QTIES') != null ? (int)Tools::getValue('MA_LAST_QTIES') : Configuration::get('MA_LAST_QTIES')).'" size="3" />
+					<input type="text" name="MA_LAST_QTIES" value="'.(Tools::getValue('MA_LAST_QTIES') != null ? (int)Tools::getValue('MA_LAST_QTIES') : (int)Configuration::get('MA_LAST_QTIES')).'" size="3" />
 					<p>'.$this->l('Quantity for which a product is considered out of stock').'</p>
 				</div>
 				<div style="clear:both;">&nbsp;</div>
@@ -235,15 +235,15 @@ class MailAlerts extends Module
 				</div>
 				<label>'.$this->l('Coverage:').'</label>
 				<div class="margin-form">
-					<input type="text" name="MA_PRODUCT_COVERAGE" value="'.(Tools::getValue('MA_PRODUCT_COVERAGE') != null ? (int)Tools::getValue('MA_PRODUCT_COVERAGE') : Configuration::getGlobalValue('MA_PRODUCT_COVERAGE')).'" size="3" />
-					<p>'.$this->l('Stock cover, in days. Also, the stock cover of a given product will be calculated based on this number').'</p>
+					<input type="text" name="MA_PRODUCT_COVERAGE" value="'.(Tools::getValue('MA_PRODUCT_COVERAGE') != null ? (int)Tools::getValue('MA_PRODUCT_COVERAGE') : (int)Configuration::getGlobalValue('MA_PRODUCT_COVERAGE')).'" size="3" />
+					<p>'.$this->l('Stock coverage, in days. Also, the stock coverage of a given product will be calculated based on this number').'</p>
 				</div>
 				<div style="clear:both;">&nbsp;</div>
 				<div style="clear:both;">&nbsp;</div>
 				<label>'.$this->l('E-mail addresses:').' </label>
 				<div class="margin-form">
 					<div style="float:left; margin-right:10px;">
-						<textarea name="ma_merchant_mails" rows="10" cols="40">'.Tools::getValue('ma_merchant_mails', str_replace(self::__MA_MAIL_DELIMITOR__, "\n", $this->_merchant_mails)).'</textarea>
+						<textarea name="ma_merchant_mails" rows="10" cols="40">'.Tools::safeOutput(Tools::getValue('ma_merchant_mails', str_replace(self::__MA_MAIL_DELIMITOR__, "\n", $this->_merchant_mails))).'</textarea>
 					</div>
 					<div style="float:left;">
 						'.$this->l('One e-mail address per line (e.g. bob@example.com)').'
@@ -264,7 +264,7 @@ class MailAlerts extends Module
 
 		// Getting differents vars
 		$id_lang = (int)Context::getContext()->language->id;
-	 	$currency = $params['currency'];
+		$currency = $params['currency'];
 		$configuration = Configuration::getMultiple(array('PS_SHOP_EMAIL', 'PS_MAIL_METHOD', 'PS_MAIL_SERVER', 'PS_MAIL_USER', 'PS_MAIL_PASSWD', 'PS_SHOP_NAME'));
 		$order = $params['order'];
 		$customer = $params['customer'];
@@ -311,7 +311,7 @@ class MailAlerts extends Module
 					<td style="padding:0.6em 0.4em;">
 						<strong>'
 							.$product['product_name'].(isset($product['attributes_small']) ? ' '.$product['attributes_small'] : '').(!empty($customization_text) ? '<br />'.$customization_text : '').
-					   '</strong>
+						'</strong>
 					</td>
 					<td style="padding:0.6em 0.4em; text-align:right;">'.Tools::displayPrice($unit_price, $currency, false).'</td>
 					<td style="padding:0.6em 0.4em; text-align:center;">'.(int)$product['product_quantity'].'</td>
@@ -340,11 +340,11 @@ class MailAlerts extends Module
 			'{delivery_block_txt}' => MailAlert::getFormatedAddress($delivery, "\n"),
 			'{invoice_block_txt}' => MailAlert::getFormatedAddress($invoice, "\n"),
 			'{delivery_block_html}' => MailAlert::getFormatedAddress($delivery, '<br />', array(
-							'firstname'	=> '<span style="color:#DB3484; font-weight:bold;">%s</span>',
-							'lastname'	=> '<span style="color:#DB3484; font-weight:bold;">%s</span>')),
+			'firstname' => '<span style="color:#DB3484; font-weight:bold;">%s</span>',
+			'lastname' => '<span style="color:#DB3484; font-weight:bold;">%s</span>')),
 			'{invoice_block_html}' => MailAlert::getFormatedAddress($invoice, '<br />', array(
-							'firstname'	=> '<span style="color:#DB3484; font-weight:bold;">%s</span>',
-							'lastname'	=> '<span style="color:#DB3484; font-weight:bold;">%s</span>')),
+			'firstname' => '<span style="color:#DB3484; font-weight:bold;">%s</span>',
+			'lastname' => '<span style="color:#DB3484; font-weight:bold;">%s</span>')),
 			'{delivery_company}' => $delivery->company,
 			'{delivery_firstname}' => $delivery->firstname,
 			'{delivery_lastname}' => $delivery->lastname,
@@ -438,13 +438,13 @@ class MailAlerts extends Module
 			$product_name = Product::getProductName($id_product, $id_product_attribute, $id_lang);
 			$template_vars = array(
 								'{qty}' => $quantity,
-					      		'{last_qty}' => $ma_last_qties,
-					      		'{product}' => pSQL($product_name));
+								'{last_qty}' => $ma_last_qties,
+								'{product}' => $product_name);
 
 			if (file_exists(dirname(__FILE__).'/mails/'.$iso.'/productoutofstock.txt') &&
 				file_exists(dirname(__FILE__).'/mails/'.$iso.'/productoutofstock.html'))
 				Mail::Send($id_lang,
-						   'productoutofstock',
+							'productoutofstock',
 							Mail::l('Product out of stock', $id_lang),
 							$template_vars,
 							explode(self::__MA_MAIL_DELIMITOR__, $this->_merchant_mails),
@@ -546,14 +546,14 @@ class MailAlerts extends Module
 			$product_name = Product::getProductName($id_product, $id_product_attribute, $id_lang);
 			$template_vars = array(
 								'{current_coverage}' => $coverage,
-					      		'{warning_coverage}' => $warning_coverage,
-					      		'{product}' => pSQL($product_name));
+								'{warning_coverage}' => $warning_coverage,
+								'{product}' => pSQL($product_name));
 
 			if (file_exists(dirname(__FILE__).'/mails/'.$iso.'/productcoverage.txt') &&
 				file_exists(dirname(__FILE__).'/mails/'.$iso.'/productcoverage.html'))
 			{
 				Mail::Send($id_lang,
-						   'productcoverage',
+							'productcoverage',
 							Mail::l('Stock coverage', $id_lang),
 							$template_vars,
 							explode(self::__MA_MAIL_DELIMITOR__, $this->_merchant_mails),
@@ -569,6 +569,6 @@ class MailAlerts extends Module
 
 	public function hookDisplayHeader($params)
 	{
-	    $this->context->controller->addCSS($this->_path.'mailalerts.css', 'all');
+		$this->context->controller->addCSS($this->_path.'mailalerts.css', 'all');
 	}
 }

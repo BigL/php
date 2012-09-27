@@ -19,7 +19,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 14276 $
+*  @version  Release: $Revision: 16903 $
 *  @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 *}
@@ -68,7 +68,7 @@ $(document).ready(function() {
 	<img src="../img/admin/pdf.gif" alt="{l s='Supply Order State'}">
 	{l s='Print the supply order form'}
 </legend>
-<a href="{$link->getAdminLink('AdminPdf')}&submitAction=generateSupplyOrderFormPDF&id_supply_order={$supply_order->id}" target="_blank" title="Export as PDF">{l s='Click here to download the supply order form'}.</a>
+<a href="{$link->getAdminLink('AdminPdf')|escape:'htmlall':'UTF-8'}&submitAction=generateSupplyOrderFormPDF&id_supply_order={$supply_order->id}" target="_blank" title="Export as PDF">{l s='Click here to download the supply order form'}.</a>
 </fieldset>
 {/if}
 

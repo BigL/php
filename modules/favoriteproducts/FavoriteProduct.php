@@ -20,7 +20,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 15897 $
+*  @version  Release: $Revision: 16164 $
 *  @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 */
@@ -57,7 +57,7 @@ class FavoriteProduct extends ObjectModel
 	public static function getFavoriteProducts($id_customer, $id_lang)
 	{
 		return Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS('
-			SELECT fp.`id_shop`, p.`id_product`, pl.`description_short`, pl.`link_rewrite`,
+			SELECT DISTINCT p.`id_product`, fp.`id_shop`, pl.`description_short`, pl.`link_rewrite`,
 				pl.`name`, i.`id_image`, CONCAT(p.`id_product`, \'-\', i.`id_image`) as image
 			FROM `'._DB_PREFIX_.'favorite_product` fp
 			LEFT JOIN `'._DB_PREFIX_.'product` p ON (p.`id_product` = fp.`id_product`)
@@ -96,6 +96,9 @@ class FavoriteProduct extends ObjectModel
 
 	public static function isCustomerFavoriteProduct($id_customer, $id_product, Shop $shop = null)
 	{
+		if (!$id_customer)
+			return false;
+
 		if (!$shop)
 			$shop = Context::getContext()->shop;
 

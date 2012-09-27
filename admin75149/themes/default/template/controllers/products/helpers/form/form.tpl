@@ -19,7 +19,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 15843 $
+*  @version  Release: $Revision: 17215 $
 *  @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 *}
@@ -83,7 +83,7 @@
 	<script type="text/javascript">
 		var token = '{$token}';
 		var id_product = {if isset($product->id)}{$product->id}{else}0{/if};
-		var defaultLanguage = {$defaultLanguage};
+		var id_lang_default = {$id_lang_default};
 		var product_type_pack = {Product::PTYPE_PACK};
 		var product_type_virtual = {Product::PTYPE_VIRTUAL};
 		var product_type_simple = {Product::PTYPE_SIMPLE};
@@ -237,7 +237,7 @@
 
 	<form id="product_form" action="{$form_action}" method="post" enctype="multipart/form-data" name="product" style="display:none;">
 		<input type="hidden" name="id_product" value="{$id_product}" />
-		<input type="hidden" id="is_virtual" name="is_virtual" value="{$product->is_virtual}" />
+		<input type="hidden" id="is_virtual" name="is_virtual" value="{$product->is_virtual|escape:html:'UTF-8'}" />
 		<div class="tab-pane" id="tabPane1">
 		{if !$product->active && $product->isAssociatedToShop()}
 			<div class="warn draft" >

@@ -34,7 +34,7 @@ class BlockSearch extends Module
 	{
 		$this->name = 'blocksearch';
 		$this->tab = 'search_filter';
-		$this->version = 1.1;
+		$this->version = 1.2;
 		$this->author = 'PrestaShop';
 		$this->need_instance = 0;
 
@@ -46,10 +46,25 @@ class BlockSearch extends Module
 
 	public function install()
 	{
-		if (!parent::install() || !$this->registerHook('top') || !$this->registerHook('header'))
+		if (!parent::install() || !$this->registerHook('top') || !$this->registerHook('header') || !$this->registerHook('displayMobileTopSiteMap'))
 			return false;
 		return true;
 	}
+	
+	public function hookdisplayMobileTopSiteMap($params)
+	{
+		$this->smarty->assign(array('hook_mobile' => true, 'instantsearch' => false));
+		return $this->hookTop($params);
+	}
+	
+	/*
+public function hookDisplayMobileHeader($params)
+	{
+		if (Configuration::get('PS_SEARCH_AJAX'))
+			$this->context->controller->addJqueryPlugin('autocomplete');
+		$this->context->controller->addCSS(_THEME_CSS_DIR_.'product_list.css');
+	}
+*/
 	
 	public function hookHeader($params)
 	{
@@ -67,12 +82,14 @@ class BlockSearch extends Module
 	public function hookRightColumn($params)
 	{
 		$this->calculHookCommon($params);
+		$this->smarty->assign('blocksearch_type', 'block');
 		return $this->display(__FILE__, 'blocksearch.tpl');
 	}
 
 	public function hookTop($params)
 	{
 		$this->calculHookCommon($params);
+		$this->smarty->assign('blocksearch_type', 'top');
 		return $this->display(__FILE__, 'blocksearch-top.tpl');
 	}
 
@@ -89,6 +106,7 @@ class BlockSearch extends Module
 			'search_ssl' =>		Tools::usingSecureMode(),
 			'ajaxsearch' =>		Configuration::get('PS_SEARCH_AJAX'),
 			'instantsearch' =>	Configuration::get('PS_INSTANT_SEARCH'),
+			'self' =>			dirname(__FILE__),
 		));
 
 		return true;

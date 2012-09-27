@@ -19,7 +19,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 14682 $
+*  @version  Release: $Revision: 17189 $
 *  @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 *}
@@ -60,7 +60,7 @@
 	</td>
 	</tr>
 	<tr>
-		<td class="col-left"><label>{l s='Additional shipping cost:'}</label></td>
+		<td class="col-left"><label>{l s='Additional shipping cost (per quantity):'}</label></td>
 		<td style="padding-bottom:5px;">{$currency->prefix}<input type="text" name="additional_shipping_cost"
 				value="{$product->additional_shipping_cost|htmlentities}" />{$currency->suffix}
 			{if $country_display_tax_label}{l s='tax excl.'}{/if}
@@ -72,12 +72,21 @@
 			<label>{l s='Carriers:'}</label>
 		</td>
 		<td class="padding-bottom:5px;">
-			<select name="carriers[]" multiple="multiple" size="4" style="height:100px;width:200px;">
+			<select name="carriers[]" id="carriers_restriction" multiple="multiple" size="4" style="height:100px;width:200px;">
 				{foreach $carrier_list as $carrier}
 					<option value="{$carrier.id_reference}" {if isset($carrier.selected) && $carrier.selected}selected="selected"{/if}>{$carrier.name}</option>
 				{/foreach}
 			</select>
+			<br>
+			<button class="button" onclick="unselectAllCarriers(); return false;">{l s='Unselect all'}</button>
 			<p class="preference_description">{l s='If no carrier selected, all carriers could be used to ship this product.'}</p>
 		</td>
 	</tr>
 </table>
+<script>
+	function unselectAllCarriers()
+	{
+		$('#carriers_restriction option').each(function () { $(this).removeAttr('selected')});
+		return false;
+	}
+</script>

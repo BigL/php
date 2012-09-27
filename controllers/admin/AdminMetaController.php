@@ -149,7 +149,7 @@ class AdminMetaControllerCore extends AdminController
 			}
 		}
 		else
-			$shop_url_options['description'] = $this->l('Multishop option is enabled, if you want to change the url of your shop you have to go in "Advanced parameters" -> "multishop" tab.');
+			$shop_url_options['description'] = $this->l('Multistore option is enabled, if you want to change the URL of your shop you have to go to "Multistore" page under the "Advanced Parameters"  menu.');
 
 		// List of options
 		$this->fields_options = array(
@@ -310,7 +310,8 @@ class AdminMetaControllerCore extends AdminController
 	{
 		if (Tools::isSubmit('submitAddmeta'))
 		{
-			$langs = Language::getLanguages(true);
+			$langs = Language::getLanguages(false);
+
 			$default_language = Configuration::get('PS_LANG_DEFAULT');
 			if (Tools::getValue('page') != 'index')
 			{
@@ -339,6 +340,7 @@ class AdminMetaControllerCore extends AdminController
 					else
 						$_POST['url_rewrite_'.$lang['id_lang']] = Tools::getValue('url_rewrite_1');
 			}
+
 			Hook::exec('actionAdminMetaSave');
 		}
 		else if (Tools::isSubmit('submitRobots'))
@@ -363,35 +365,41 @@ class AdminMetaControllerCore extends AdminController
 			fwrite($write_fd, "# For more information about the robots.txt standard, see:\n");
 			fwrite($write_fd, "# http://www.robotstxt.org/wc/robots.html\n");
 
-			//GoogleBot specific
-			fwrite($write_fd, "# GoogleBot specific\n");
-			fwrite($write_fd, "User-agent: Googlebot\n");
-			foreach ($this->rb_data['GB'] as $gb)
-				fwrite($write_fd, 'Disallow: '.__PS_BASE_URI__.$gb."\n");
-
 			// User-Agent
-			fwrite($write_fd, "# All bots\n");
 			fwrite($write_fd, "User-agent: *\n");
-
+			
+			// Private pages
+			if (count($this->rb_data['GB']))
+			{
+				fwrite($write_fd, "# Private pages\n");
+				foreach ($this->rb_data['GB'] as $gb)
+					fwrite($write_fd, 'Disallow: /*'.$gb."\n");
+			}
+			
 			// Directories
-			fwrite($write_fd, "# Directories\n");
-			foreach ($this->rb_data['Directories'] as $dir)
-				fwrite($write_fd, 'Disallow: '.__PS_BASE_URI__.$dir."\n");
-
+			if (count($this->rb_data['Directories']))
+			{
+				fwrite($write_fd, "# Directories\n");
+				foreach ($this->rb_data['Directories'] as $dir)
+					fwrite($write_fd, 'Disallow: /*'.$dir."\n");
+			}
+			
 			// Files
-			fwrite($write_fd, "# Files\n");
-			foreach ($this->rb_data['Files'] as $file)
-				fwrite($write_fd, 'Disallow: '.__PS_BASE_URI__.$file."\n");
-
+			if (count($this->rb_data['Files']))
+			{
+				fwrite($write_fd, "# Files\n");
+				foreach ($this->rb_data['Files'] as $iso_code => $files)
+					foreach ($files as $file)
+						fwrite($write_fd, 'Disallow: /*'.$iso_code.'/'.$file."\n");
+			}
+			
 			// Sitemap
-			fwrite($write_fd, "# Sitemap\n");
-			if (file_exists($this->sm_file))
-				if (filesize($this->sm_file))
-					fwrite(
-						$write_fd,
-						'Sitemap: '.(Configuration::get('PS_SSL_ENABLED') ? 'https://' : 'http://').$_SERVER['SERVER_NAME'].__PS_BASE_URI__.'sitemap.xml'."\n"
-					);
-			fwrite($write_fd, "\n");
+			if (file_exists($this->sm_file) && filesize($this->sm_file))
+			{
+				fwrite($write_fd, "# Sitemap\n");
+				fwrite($write_fd, 'Sitemap: '.(Configuration::get('PS_SSL_ENABLED') ? 'https://' : 'http://').$_SERVER['SERVER_NAME'].__PS_BASE_URI__.'sitemap.xml'."\n");
+			}
+
 			fclose($write_fd);
 
 			$this->redirect_after = self::$currentIndex.'&conf=4&token='.$this->token;
@@ -401,6 +409,14 @@ class AdminMetaControllerCore extends AdminController
 	public function getList($id_lang, $orderBy = null, $orderWay = null, $start = 0, $limit = null, $id_lang_shop = false)
 	{
 		parent::getList($id_lang, $orderBy, $orderWay, $start, $limit, Context::getContext()->shop->id);
+	}
+	
+	public function renderList()
+	{
+		if (Shop::isFeatureActive() && Shop::getContext() != Shop::CONTEXT_SHOP)
+			$this->displayInformation($this->l('You can only display the page list in a shop context.'));
+		else
+			return parent::renderList();
 	}
 
 	/**
@@ -482,8 +498,13 @@ class AdminMetaControllerCore extends AdminController
 	{
 		if (!Shop::isFeatureActive() && $this->url && $this->url->domain != $value)
 		{
-			$this->url->domain = $value;
-			$this->url->update();
+			if (Validate::isCleanHtml($value))
+			{
+				$this->url->domain = $value;
+				$this->url->update();
+			}
+			else
+				$this->errors[] = Tools::displayError('Domain is not valid');
 		}
 	}
 
@@ -494,8 +515,13 @@ class AdminMetaControllerCore extends AdminController
 	{
 		if (!Shop::isFeatureActive() && $this->url && $this->url->domain_ssl != $value)
 		{
-			$this->url->domain_ssl = $value;
-			$this->url->update();
+			if (Validate::isCleanHtml($value))
+			{
+				$this->url->domain_ssl = $value;
+				$this->url->update();
+			}
+			else
+				$this->errors[] = Tools::displayError('SSL Domain is not valid');
 		}
 	}
 
@@ -584,21 +610,22 @@ class AdminMetaControllerCore extends AdminController
 		$tab['Files'] = array();
 		if (Configuration::get('PS_REWRITING_SETTINGS'))
 		{
-			$sql = 'SELECT ml.url_rewrite
+			$sql = 'SELECT ml.url_rewrite, l.iso_code
 					FROM '._DB_PREFIX_.'meta m
 					INNER JOIN '._DB_PREFIX_.'meta_lang ml ON ml.id_meta = m.id_meta
-					WHERE m.page IN (\''.implode('\', \'', $disallow_controllers).'\')';
+					INNER JOIN '._DB_PREFIX_.'lang l ON l.id_lang = ml.id_lang
+					WHERE l.active = 1 AND m.page IN (\''.implode('\', \'', $disallow_controllers).'\')';
 			if ($results = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS($sql))
 				foreach ($results as $row)
-					$tab['Files'][] = $row['url_rewrite'];
+					$tab['Files'][$row['iso_code']][] = $row['url_rewrite'];
 		}
 
 		$tab['GB'] = array(
-			'*orderby=','*orderway=','*tag=','*id_currency=','*search_query=','*id_lang=','*back=','*utm_source=','*utm_medium=','*utm_campaign=','*n='
+			'orderby=','orderway=','tag=','id_currency=','search_query=','back=','utm_source=','utm_medium=','utm_campaign=','n='
 		);
 
 		foreach ($disallow_controllers as $controller)
-			$tab['GB'][] = '*controller='.$controller;
+			$tab['GB'][] = 'controller='.$controller;
 
 		return $tab;
 	}

@@ -19,7 +19,7 @@
 *
 *  @author PrestaShop SA <contact@prestashop.com>
 *  @copyright  2007-2012 PrestaShop SA
-*  @version  Release: $Revision: 15579 $
+*  @version  Release: $Revision: 16264 $
 *  @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 *}
@@ -57,13 +57,43 @@
 		</span>
 		{/if}
 	</td>
-	{if ($order->hasBeenPaid())}<td align="center" class="productQuantity">{$product['product_quantity_refunded']}</td>{/if}
-	{if ($order->hasBeenDelivered())}<td align="center" class="productQuantity">{$product['product_quantity_return']}</td>{/if}
+	{if ($order->hasBeenPaid())}
+		<td align="center" class="productQuantity">
+			{$product['product_quantity_refunded']}
+			{if count($product['refund_history'])}
+				<span class="tooltip">
+					<span class="tooltip_label tooltip_button">+</span>
+					<div class="tooltip_content">
+					<span class="title">{l s='Refund history'}</span>
+					{foreach $product['refund_history'] as $refund}
+						{l s='%1s - %2s' sprintf=[{dateFormat date=$refund.date_add}, {displayPrice price=$refund.amount_tax_incl}]}<br />
+					{/foreach}
+					</div>
+				</span>
+			{/if}
+		</td>
+	{/if}
+	{if $order->hasBeenDelivered() || $order->hasProductReturned()}
+		<td align="center" class="productQuantity">
+			{$product['product_quantity_return']}
+			{if count($product['return_history'])}
+				<span class="tooltip">
+					<span class="tooltip_label tooltip_button">+</span>
+					<div class="tooltip_content">
+					<span class="title">{l s='Return history'}</span>
+					{foreach $product['return_history'] as $return}
+						{l s='%1s - %2s - %3s' sprintf=[{dateFormat date=$return.date_add}, $return.product_quantity, $return.state]}<br />
+					{/foreach}
+					</div>
+				</span>
+			{/if}
+		</td>
+	{/if}
 	<td align="center" class="productQuantity product_stock">{$product['current_stock']}</td>
 	<td align="center" class="total_product">
 		{displayPrice price=(Tools::ps_round($product_price, 2) * ($product['product_quantity'] - $product['customizationQuantityTotal'])) currency=$currency->id}
 	</td>
-	<td colspan="2" style="display: none;" class="add_product_fields">&nbsp;</th>
+	<td colspan="2" style="display: none;" class="add_product_fields">&nbsp;</td>
 	<td align="center" class="cancelCheck standard_refund_fields current-edit" style="display:none">
 		<input type="hidden" name="totalQtyReturn" id="totalQtyReturn" value="{$product['product_quantity_return']}" />
 		<input type="hidden" name="totalQty" id="totalQty" value="{$product['product_quantity']}" />

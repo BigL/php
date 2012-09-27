@@ -24,9 +24,13 @@
 *  International Registered Trademark & Property of PrestaShop SA
 */
 
+// Retrocompatibility with 1.4
+if (typeof baseUri === "undefined" && typeof baseDir !== "undefined")
+	baseUri = baseDir;
 
 //JS Object : update the cart by ajax actions
 var ajaxCart = {
+	nb_total_products: 0,
 
 	//override every button in the page in relation to the cart
 	overrideButtonsInThePage : function(){
@@ -116,12 +120,11 @@ var ajaxCart = {
 
 		}
 	},
-	// cart to fix display when using back and previous browsers buttons
+	// Fix display when using back and previous browsers buttons
 	refresh : function(){
-		//send the ajax request to the server
 		$.ajax({
 			type: 'GET',
-			url: baseDir + 'index.php',
+			url: baseUri,
 			async: true,
 			cache: false,
 			dataType : "json",
@@ -129,9 +132,6 @@ var ajaxCart = {
 			success: function(jsonData)
 			{
 				ajaxCart.updateCart(jsonData);
-			},
-			error: function(XMLHttpRequest, textStatus, errorThrown) {
-				//alert("TECHNICAL ERROR: unable to refresh the cart.\n\nDetails:\nError thrown: " + XMLHttpRequest + "\n" + 'Text status: ' + textStatus);
 			}
 		});
 	},
@@ -195,7 +195,7 @@ var ajaxCart = {
 		//send the ajax request to the server
 		$.ajax({
 			type: 'POST',
-			url: baseDir + 'index.php',
+			url: baseUri,
 			async: true,
 			cache: false,
 			dataType : "json",
@@ -237,7 +237,7 @@ var ajaxCart = {
 			},
 			error: function(XMLHttpRequest, textStatus, errorThrown)
 			{
-				alert("TECHNICAL ERROR: unable to add the product.\n\nDetails:\nError thrown: " + XMLHttpRequest + "\n" + 'Text status: ' + textStatus);
+				alert("Impossible to add the product to the cart.\n\ntextStatus: '" + textStatus + "'\nerrorThrown: '" + errorThrown + "'\nresponseText:\n" + XMLHttpRequest.responseText);
 				//reactive the button when adding has finished
 				if (addedFromProductPage)
 					$('body#product p#add_to_cart input').removeAttr('disabled').addClass('exclusive').removeClass('exclusive_disabled');
@@ -252,7 +252,7 @@ var ajaxCart = {
 		//send the ajax request to the server
 		$.ajax({
 			type: 'POST',
-			url: baseDir + 'index.php',
+			url: baseUri,
 			async: true,
 			cache: false,
 			dataType : "json",
@@ -311,9 +311,10 @@ var ajaxCart = {
 				$('#'+removedProductId).addClass('strike').fadeTo('slow', 0, function(){
 					$(this).slideUp('slow', function(){
 						$(this).remove();
-						//if the cart is now empty, show the 'no product in the cart' message
+						// If the cart is now empty, show the 'no product in the cart' message and close detail
 						if($('#cart_block dl.products dt').length == 0)
 						{
+							$("#header #cart_block").stop(true, true).slideUp(200);
 							$('p#cart_block_no_products:hidden').slideDown(450);
 							$('div#cart_block dl.products').remove();
 						}
@@ -349,8 +350,8 @@ var ajaxCart = {
 		}
 		var removeLinks = $('#cart_block_product_' + domIdProduct).find('a.ajax_cart_block_remove_link');
 		if (!product.hasCustomizedDatas && !removeLinks.length)
-			$('#' + domIdProduct + ' span.remove_link').html('<a class="ajax_cart_block_remove_link" rel="nofollow" href="' + baseDir + 'index.php?controller=cart&amp;delete&amp;id_product=' + product['id'] + '&amp;ipa=' + product['idCombination'] + '&amp;token=' + static_token + '"> </a>');
-		if (parseInt(product.price_float) <= 0)
+			$('#' + domIdProduct + ' span.remove_link').html('<a class="ajax_cart_block_remove_link" rel="nofollow" href="' + baseUri + '?controller=cart&amp;delete&amp;id_product=' + product['id'] + '&amp;ipa=' + product['idCombination'] + '&amp;token=' + static_token + '"> </a>');
+		if (parseFloat(product.price_float) <= 0)
 			$('#' + domIdProduct + ' span.remove_link').html('');
 	},
 
@@ -381,12 +382,15 @@ var ajaxCart = {
 			{
 				if (parseFloat(jsonData.discounts[i].price_float) > 0)
 				{
+					var delete_link = '';
+					if (jsonData.discounts[i].code.length)
+						delete_link = '<a class="delete_voucher" href="'+jsonData.discounts[i].link+'" title="'+delete_txt+'"><img src="'+img_dir+'icon/delete.gif" alt="'+delete_txt+'" class="icon" /></a>';
 					$('#vouchers tbody').append($(
 						'<tr class="bloc_cart_voucher" id="bloc_cart_voucher_'+jsonData.discounts[i].id+'">'
 						+'	<td class="quantity">1x</td>'
 						+'	<td class="name" title="'+jsonData.discounts[i].description+'">'+jsonData.discounts[i].name+'</td>'
 						+'	<td class="price">-'+jsonData.discounts[i].price+'</td>'
-						+'	<td class="delete"><a class="delete_voucher" href="'+jsonData.discounts[i].link+'" title="'+delete_txt+'"><img src="'+img_dir+'icon/delete.gif" alt="'+delete_txt+'" class="icon" /></a></td>'
+						+'	<td class="delete">' + delete_link + '</td>'
 						+'</tr>'
 					));
 				}
@@ -443,7 +447,7 @@ var ajaxCart = {
 					content += '<a href="' + this.link + '" title="' + this.name + '">' + name + '</a>';
 					
 					if (parseFloat(this.price_float) > 0)
-						content += '<span class="remove_link"><a rel="nofollow" class="ajax_cart_block_remove_link" href="' + baseDir + 'index.php?controller=cart&amp;delete&amp;id_product=' + productId + '&amp;token=' + static_token + (this.hasAttributes ? '&amp;ipa=' + parseInt(this.idCombination) : '') + '"> </a></span>';
+						content += '<span class="remove_link"><a rel="nofollow" class="ajax_cart_block_remove_link" href="' + baseUri + '?controller=cart&amp;delete&amp;id_product=' + productId + '&amp;token=' + static_token + (this.hasAttributes ? '&amp;ipa=' + parseInt(this.idCombination) : '') + '"> </a></span>';
 					else
 						content += '<span class="remove_link"></span>';
 						
@@ -519,10 +523,7 @@ var ajaxCart = {
 			var done = 0;
 			customizationId = parseInt(this.customizationId);
 			productAttributeId = typeof(product.idCombination) == 'undefined' ? 0 : parseInt(product.idCombination);
-			// If the customization is already displayed on the cart, no update's needed
-			if ($("#deleteCustomizableProduct_" + customizationId + "_" + productId + "_" + productAttributeId).length)
-				return ('');
-			content += '<li name="customization"><div class="deleteCustomizableProduct" id="deleteCustomizableProduct_' + customizationId + '_' + productId + '_' + (productAttributeId ?  productAttributeId : '0') + '"><a  rel="nofollow" class="ajax_cart_block_remove_link" href="' + baseDir + 'index.php?controller=cart&amp;delete&amp;id_product=' + productId + '&amp;ipa=' + productAttributeId + '&amp;id_customization=' + customizationId + '&amp;token=' + static_token + '"> </a></div><span class="quantity-formated"><span class="quantity">' + parseInt(this.quantity) + '</span>x</span>';
+			content += '<li name="customization"><div class="deleteCustomizableProduct" id="deleteCustomizableProduct_' + customizationId + '_' + productId + '_' + (productAttributeId ?  productAttributeId : '0') + '"><a  rel="nofollow" class="ajax_cart_block_remove_link" href="' + baseUri + '?controller=cart&amp;delete&amp;id_product=' + productId + '&amp;ipa=' + productAttributeId + '&amp;id_customization=' + customizationId + '&amp;token=' + static_token + '"> </a></div><span class="quantity-formated"><span class="quantity">' + parseInt(this.quantity) + '</span>x</span>';
 
 			// Give to the customized product the first textfield value as name
 			$(this.datas).each(function(){
@@ -601,6 +602,9 @@ var ajaxCart = {
 		$('.ajax_cart_tax_cost').text(jsonData.taxCost);
 		$('.cart_block_wrapping_cost').text(jsonData.wrappingCost);
 		$('.ajax_block_cart_total').text(jsonData.total);
+
+		this.nb_total_products = jsonData.nbTotalProducts;
+		
 		if(parseInt(jsonData.nbTotalProducts) > 0)
 		{
 			$('.ajax_cart_no_product').hide();
@@ -674,7 +678,8 @@ $(document).ready(function(){
 	$("#shopping_cart a:first").hover(
 		function() {
 			$(this).css('border-radius', '3px 3px 0px 0px');
-			$("#header #cart_block").stop(true, true).slideDown(450);
+			if (ajaxCart.nb_total_products > 0)
+				$("#header #cart_block").stop(true, true).slideDown(450);
 		},
 		function() {
 			$('#shopping_cart a').css('border-radius', '3px');

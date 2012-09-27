@@ -35,6 +35,8 @@ class AdminEmployeesControllerCore extends AdminController
 
 	/** @var array tabs list*/
 	protected $tabs_list = array();
+	
+	protected $restrict_edition = false;
 
 	public function __construct()
 	{
@@ -133,6 +135,8 @@ class AdminEmployeesControllerCore extends AdminController
 		if ($this->context->employee->id == Tools::getValue('id_employee'))
 		{
 			$this->tabAccess['view'] = '1';
+			if (!$this->tabAccess['edit'])
+				$this->restrict_edition = true;
 			$this->tabAccess['edit'] = '1';
 		}
 	}
@@ -206,9 +210,9 @@ class AdminEmployeesControllerCore extends AdminController
 				),
 				array(
 					'type' => 'default_tab',
-					'label' => $this->l('Default tab'),
+					'label' => $this->l('Default page'),
 					'name' => 'default_tab',
-					'desc' => $this->l('This tab will be displayed just after login'),
+					'desc' => $this->l('This page will be displayed just after login'),
 					'options' => $this->tabs_list
 				),
 				array(
@@ -235,34 +239,33 @@ class AdminEmployeesControllerCore extends AdminController
 					'name' => 'bo_theme',
 					'options' => array('query' => $this->themes),
 					'desc' => $this->l('Back Office theme')
+				),
+				array(
+					'type' => 'radio',
+					'label' => $this->l('Show screencast at log in:'),
+					'name' => 'bo_show_screencast',
+					'desc' => $this->l('Display the welcome video in the Admin panel dashboard at log in'),
+					'required' => false,
+					'class' => 't',
+					'is_bool' => true,
+					'values' => array(
+						array(
+							'id' => 'bo_show_screencast_on',
+							'value' => 1,
+							'label' => $this->l('Enabled')
+						),
+						array(
+							'id' => 'bo_show_screencast_off',
+							'value' => 0,
+							'label' => $this->l('Disabled')
+						)
+					)
 				)
 			)
 		);
 
-		if ((int)$this->tabAccess['edit'])
+		if ((int)$this->tabAccess['edit'] && !$this->restrict_edition)
 		{
-			$this->fields_form['input'][] = array(
-				'type' => 'radio',
-				'label' => $this->l('Show screencast at log in:'),
-				'name' => 'bo_show_screencast',
-				'required' => false,
-				'class' => 't',
-				'is_bool' => true,
-				'values' => array(
-					array(
-						'id' => 'bo_show_screencast_on',
-						'value' => 1,
-						'label' => $this->l('Enabled')
-					),
-					array(
-						'id' => 'bo_show_screencast_off',
-						'value' => 0,
-						'label' => $this->l('Disabled')
-					)
-				),
-				'desc' => $this->l('Display the welcome video in the Admin panel dashboard at log in')
-			);
-
 			$this->fields_form['input'][] = array(
 				'type' => 'radio',
 				'label' => $this->l('Status:'),
@@ -327,7 +330,9 @@ class AdminEmployeesControllerCore extends AdminController
 		);
 
 		$this->fields_value['passwd'] = false;
-		$this->fields_value['id_lang'] = $this->context->language->id;
+
+		if (empty($obj->id))
+			$this->fields_value['id_lang'] = $this->context->language->id;
 
 		return parent::renderForm();
 	}
@@ -353,7 +358,6 @@ class AdminEmployeesControllerCore extends AdminController
 				$this->errors[] = Tools::displayError('This functionality has been disabled.');
 				return;
 			}
-			/* PrestaShop demo mode*/
 
 			if ($this->context->employee->id == Tools::getValue('id_employee'))
 			{
@@ -364,8 +368,8 @@ class AdminEmployeesControllerCore extends AdminController
 			$employee = new Employee(Tools::getValue('id_employee'));
 			if ($employee->isLastAdmin())
 			{
-					$this->errors[] = Tools::displayError('You cannot disable or delete the last administrator account.');
-					return false;
+				$this->errors[] = Tools::displayError('You cannot disable or delete the last administrator account.');
+				return false;
 			}
 
 			// It is not possible to delete an employee if he manages warehouses
@@ -376,11 +380,52 @@ class AdminEmployeesControllerCore extends AdminController
 				return false;
 			}
 		}
-		else if (Tools::isSubmit('submitAddemployee'))
+		elseif (Tools::isSubmit('submitAddemployee'))
 		{
 			$employee = new Employee((int)Tools::getValue('id_employee'));
-			if (!(int)$this->tabAccess['edit'])
+
+			// If the employee is editing its own account
+			if ($this->restrict_edition)
+			{
 				$_POST['id_profile'] = $_GET['id_profile'] = $employee->id_profile;
+				$_POST['active'] = $_GET['active'] = $employee->active;
+				
+				// Unset set shops
+				foreach ($_POST as $postkey => $postvalue)
+					if (strstr($postkey, 'checkBoxShopAsso_'.$this->table) !== false)
+						unset($_POST[$postkey]);
+				foreach ($_GET as $postkey => $postvalue)
+					if (strstr($postkey, 'checkBoxShopAsso_'.$this->table) !== false)
+						unset($_GET[$postkey]);
+						
+				// Add current shops associated to the employee
+				$result = Shop::getShopById((int)$employee->id, $this->identifier, $this->table);
+				foreach ($result as $row)
+				{
+					$key = 'checkBoxShopAsso_'.$this->table;
+					if (!isset($_POST[$key]))
+						$_POST[$key] = array();
+					if (!isset($_GET[$key]))
+						$_GET[$key] = array();
+					$_POST[$key][$row['id_shop']] = 1;
+					$_GET[$key][$row['id_shop']] = 1;
+				}
+			}
+			//if profile is super admin, manually fill checkBoxShopAsso_employee because in the form they are disabled.
+			if ($_POST['id_profile'] == _PS_ADMIN_PROFILE_)
+			{
+				$result = Db::getInstance()->executeS('SELECT id_shop FROM '._DB_PREFIX_.'shop');
+				foreach ($result as $row)
+				{
+					$key = 'checkBoxShopAsso_'.$this->table;
+					if (!isset($_POST[$key]))
+						$_POST[$key] = array();
+					if (!isset($_GET[$key]))
+						$_GET[$key] = array();
+					$_POST[$key][$row['id_shop']] = 1;
+					$_GET[$key][$row['id_shop']] = 1;
+				}
+			}
 
 			if ($employee->isLastAdmin())
 			{
@@ -400,7 +445,7 @@ class AdminEmployeesControllerCore extends AdminController
 			if (!in_array(Tools::getValue('bo_theme'), $this->themes))
 			{
 				$this->errors[] = Tools::displayError('Invalid theme.');
-					return false;
+				return false;
 			}
 
 			$assos = $this->getSelectedAssoShop($this->table);

@@ -24,18 +24,12 @@
 *  International Registered Trademark & Property of PrestaShop SA
 *}
 
-<script type="text/javascript">
-// <![CDATA[
-		
-//]]>
-</script>
-
 <form action="{if isset($opc) && $opc}{$link->getPageLink('order-opc', true)}{else}{$link->getPageLink('order', true)}{/if}" method="post" class="submit">
 	<div>
 		<input type="hidden" value="{$order->id}" name="id_order"/>
 		<h4>
 			<input type="submit" value="{l s='Reorder'}" name="submitReorder" class="button exclusive" />
-			{l s='Order #%s - placed on' sprintf=$order->id|string_format:"%06d"} {dateFormat date=$order->date_add full=0}
+			{l s='Order Reference %s - placed on' sprintf=$order->getUniqReference()} {dateFormat date=$order->date_add full=0}
 		</h4>
 	</div>
 </form>
@@ -95,7 +89,7 @@
 		{elseif $field_item eq "phone_mobile" && $address_invoice->phone_mobile}<li class="address_phone_mobile">{$address_invoice->phone_mobile|escape:'htmlall':'UTF-8'}</li>
 		{else}
 				{assign var=address_words value=" "|explode:$field_item}
-				<li>{foreach from=$address_words item=word_item name="word_loop"}{if !$smarty.foreach.word_loop.first} {/if}<span class="address_{$word_item}">{$invoiceAddressFormatedValues[$word_item]|escape:'htmlall':'UTF-8'}</span>{/foreach}</li>
+				<li>{foreach from=$address_words item=word_item name="word_loop"}{if !$smarty.foreach.word_loop.first} {/if}<span class="address_{$word_item|replace:',':''}">{$invoiceAddressFormatedValues[$word_item|replace:',':'']|escape:'htmlall':'UTF-8'}</span>{/foreach}</li>
 		{/if}
 
 	{/foreach}
@@ -108,7 +102,7 @@
 		{elseif $field_item eq "phone_mobile" && $address_delivery->phone_mobile}<li class="address_phone_mobile">{$address_delivery->phone_mobile|escape:'htmlall':'UTF-8'}</li>
 		{else}
 				{assign var=address_words value=" "|explode:$field_item} 
-				<li>{foreach from=$address_words item=word_item name="word_loop"}{if !$smarty.foreach.word_loop.first} {/if}<span class="address_{$word_item}">{$deliveryAddressFormatedValues[$word_item]|escape:'htmlall':'UTF-8'}</span>{/foreach}</li>
+				<li>{foreach from=$address_words item=word_item name="word_loop"}{if !$smarty.foreach.word_loop.first} {/if}<span class="address_{$word_item|replace:',':''}">{$deliveryAddressFormatedValues[$word_item|replace:',':'']|escape:'htmlall':'UTF-8'}</span>{/foreach}</li>
 		{/if}
 	{/foreach}
 </ul>
@@ -123,6 +117,9 @@
 				<th class="{if $return_allowed}item{else}first_item{/if}">{l s='Reference'}</th>
 				<th class="item">{l s='Product'}</th>
 				<th class="item">{l s='Quantity'}</th>
+				{if $order->hasProductReturned()}
+					<th class="item">{l s='Returned'}</th>
+				{/if}
 				<th class="item">{l s='Unit price'}</th>
 				<th class="last_item">{l s='Total price'}</th>
 			</tr>
@@ -130,37 +127,37 @@
 		<tfoot>
 			{if $priceDisplay && $use_tax}
 				<tr class="item">
-					<td colspan="{if $return_allowed}6{else}5{/if}">
+					<td colspan="{if $return_allowed || $order->hasProductReturned()}{if $order->hasProductReturned() && $return_allowed}7{else}6{/if}{else}5{/if}">
 						{l s='Total products (tax excl.):'} <span class="price">{displayWtPriceWithCurrency price=$order->getTotalProductsWithoutTaxes() currency=$currency}</span>
 					</td>
 				</tr>
 			{/if}
 			<tr class="item">
-				<td colspan="{if $return_allowed}6{else}5{/if}">
+				<td colspan="{if $return_allowed || $order->hasProductReturned()}{if $order->hasProductReturned() && $return_allowed}7{else}6{/if}{else}5{/if}">
 					{l s='Total products'} {if $use_tax}{l s='(tax incl.)'}{/if}: <span class="price">{displayWtPriceWithCurrency price=$order->getTotalProductsWithTaxes() currency=$currency}</span>
 				</td>
 			</tr>
 			{if $order->total_discounts > 0}
 			<tr class="item">
-				<td colspan="{if $return_allowed}6{else}5{/if}">
+				<td colspan="{if $return_allowed || $order->hasProductReturned()}{if $order->hasProductReturned() && $return_allowed}7{else}6{/if}{else}5{/if}">
 					{l s='Total vouchers:'} <span class="price-discount">{displayWtPriceWithCurrency price=$order->total_discounts currency=$currency convert=1}</span>
 				</td>
 			</tr>
 			{/if}
 			{if $order->total_wrapping > 0}
 			<tr class="item">
-				<td colspan="{if $return_allowed}6{else}5{/if}">
+				<td colspan="{if $return_allowed || $order->hasProductReturned()}{if $order->hasProductReturned() && $return_allowed}7{else}6{/if}{else}5{/if}">
 					{l s='Total gift-wrapping:'} <span class="price-wrapping">{displayWtPriceWithCurrency price=$order->total_wrapping currency=$currency}</span>
 				</td>
 			</tr>
 			{/if}
 			<tr class="item">
-				<td colspan="{if $return_allowed}6{else}5{/if}">
+				<td colspan="{if $return_allowed || $order->hasProductReturned()}{if $order->hasProductReturned() && $return_allowed}7{else}6{/if}{else}5{/if}">
 					{l s='Total shipping'} {if $use_tax}{l s='(tax incl.)'}{/if}: <span class="price-shipping">{displayWtPriceWithCurrency price=$order->total_shipping currency=$currency}</span>
 				</td>
 			</tr>
 			<tr class="totalprice item">
-				<td colspan="{if $return_allowed}6{else}5{/if}">
+				<td colspan="{if $return_allowed || $order->hasProductReturned()}{if $order->hasProductReturned() && $return_allowed}7{else}6{/if}{else}5{/if}">
 					{l s='Total:'} <span class="price">{displayWtPriceWithCurrency price=$order->total_paid currency=$currency}</span>
 				</td>
 			</tr>
@@ -184,6 +181,11 @@
 							<label for="cb_{$product.id_order_detail|intval}">{$product.product_name|escape:'htmlall':'UTF-8'}</label>
 						</td>
 						<td><input class="order_qte_input"  name="order_qte_input[{$smarty.foreach.products.index}]" type="text" size="2" value="{$product.customizationQuantityTotal|intval}" /><label for="cb_{$product.id_order_detail|intval}"><span class="order_qte_span editable">{$product.customizationQuantityTotal|intval}</span></label></td>
+						{if $order->hasProductReturned()}
+							<td>
+								{$product['qty_returned']}
+							</td>
+						{/if}
 						<td>
 							<label for="cb_{$product.id_order_detail|intval}">
 								{if $group_use_tax}
@@ -267,6 +269,11 @@
 							</label>
 						</td>
 						<td><input class="order_qte_input" name="order_qte_input[{$product.id_order_detail|intval}]" type="text" size="2" value="{$productQuantity|intval}" /><label for="cb_{$product.id_order_detail|intval}"><span class="order_qte_span editable">{$productQuantity|intval}</span></label></td>
+						{if $order->hasProductReturned()}
+							<td>
+								{$product['qty_returned']}
+							</td>
+						{/if}
 						<td>
 							<label for="cb_{$product.id_order_detail|intval}">
 							{if $group_use_tax}
@@ -364,7 +371,7 @@
 			{foreach from=$messages item=message name="messageList"}
 				<tr class="{if $smarty.foreach.messageList.first}first_item{elseif $smarty.foreach.messageList.last}last_item{/if} {if $smarty.foreach.messageList.index % 2}alternate_item{else}item{/if}">
 					<td>
-						{if isset($message.ename) && $message.ename}
+						{if isset($message.elastname) && $message.elastname}
 							{$message.efirstname|escape:'htmlall':'UTF-8'} {$message.elastname|escape:'htmlall':'UTF-8'}
 						{elseif $message.clastname}
 							{$message.cfirstname|escape:'htmlall':'UTF-8'} {$message.clastname|escape:'htmlall':'UTF-8'}

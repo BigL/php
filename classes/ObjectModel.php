@@ -134,6 +134,11 @@ abstract class ObjectModelCore
 	 * @var array List of specific fields to update (all fields if null)
 	 */
 	protected $update_fields = null;
+	
+	/**
+	 * @var Db An instance of the db in order to avoid calling Db::getInstance() thousands of time
+	 */
+	protected static $db = false;
 
 	/**
 	 * Returns object validation rules (fields validity)
@@ -163,10 +168,13 @@ abstract class ObjectModelCore
 	 */
 	public function __construct($id = null, $id_lang = null, $id_shop = null)
 	{
+		if (!ObjectModel::$db)
+			ObjectModel::$db = Db::getInstance();
+	
 		$this->def = self::getDefinition($this);
 		$this->setDefinitionRetrocompatibility();
 
-		if (!is_null($id_lang))
+		if ($id_lang !== null)
 			$this->id_lang = (Language::getLanguage($id_lang) !== false) ? $id_lang : Configuration::get('PS_LANG_DEFAULT');
 
 		if ($id_shop && $this->isMultishop())
@@ -200,10 +208,10 @@ abstract class ObjectModelCore
 				}
 
 				// Get shop informations
-				if (!empty($this->def['multishop']))
+				if (Shop::isTableAssociated($this->def['table']))
 					$sql->leftJoin($this->def['table'].'_shop', 'c', 'a.'.$this->def['primary'].' = c.'.$this->def['primary'].' AND c.id_shop = '.(int)$this->id_shop);
 
-				Cache::store($cache_id, Db::getInstance()->getRow($sql));
+				Cache::store($cache_id, ObjectModel::$db->getRow($sql));
 			}
 
 			$result = Cache::retrieve($cache_id);
@@ -219,7 +227,7 @@ abstract class ObjectModelCore
 					$sql = 'SELECT * FROM `'.pSQL(_DB_PREFIX_.$this->def['table']).'_lang`
 							WHERE `'.$this->def['primary'].'` = '.(int)$id
 							.(($this->id_shop && $this->isLangMultishop()) ? ' AND `id_shop` = '.$this->id_shop : '');
-					$result = Db::getInstance()->executeS($sql);
+					$result = ObjectModel::$db->executeS($sql);
 					if ($result)
 						foreach ($result as $row)
 							foreach ($row as $key => $value)
@@ -258,11 +266,11 @@ abstract class ObjectModelCore
 		$fields = $this->formatFields(self::FORMAT_COMMON);
 
 		// For retro compatibility
-		if (!empty($this->def['multishop']))
+		if (Shop::isTableAssociated($this->def['table']))
 			$fields = array_merge($fields, $this->getFieldsShop());
 
 		// Ensure that we get something to insert
-		if (!$fields)
+		if (!$fields && isset($this->id) && Validate::isUnsignedId($this->id))
 			$fields[$this->def['primary']] = $this->id;
 		return $fields;
 	}
@@ -278,7 +286,7 @@ abstract class ObjectModelCore
 	public function getFieldsShop()
 	{
 		$fields = $this->formatFields(self::FORMAT_SHOP);
-		if (!$fields)
+		if (!$fields && isset($this->id) && Validate::isUnsignedId($this->id))
 			$fields[$this->def['primary']] = $this->id;
 		return $fields;
 	}
@@ -299,7 +307,7 @@ abstract class ObjectModelCore
 		$is_lang_multishop = $this->isLangMultishop();
 
 		$fields = array();
-		if (is_null($this->id_lang))
+		if ($this->id_lang === null)
 			foreach (Language::getLanguages(false) as $language)
 			{
 				$fields[$language['id_lang']] = $this->formatFields(self::FORMAT_LANG, $language['id_lang']);
@@ -310,9 +318,9 @@ abstract class ObjectModelCore
 		else
 		{
 			$fields = array($this->id_lang => $this->formatFields(self::FORMAT_LANG, $this->id_lang));
-			$fields['id_lang'] = $this->id_lang;
+			$fields[$this->id_lang]['id_lang'] = $this->id_lang;
 			if ($this->id_shop && $is_lang_multishop)
-				$fields['id_shop'] = (int)$this->id_shop;
+				$fields[$this->id_lang]['id_shop'] = (int)$this->id_shop;
 		}
 
 		return $fields;
@@ -428,6 +436,9 @@ abstract class ObjectModelCore
 	 */
 	public function add($autodate = true, $null_values = false)
 	{
+		if (!ObjectModel::$db)
+			ObjectModel::$db = Db::getInstance();
+
 		// @hook actionObject*AddBefore
 		Hook::exec('actionObjectAddBefore', array('object' => $this));
 		Hook::exec('actionObject'.get_class($this).'AddBefore', array('object' => $this));
@@ -438,45 +449,49 @@ abstract class ObjectModelCore
 		if ($autodate && property_exists($this, 'date_upd'))
 			$this->date_upd = date('Y-m-d H:i:s');
 
+			
+		if (Shop::isTableAssociated($this->def['table']))
+		{
+			$id_shop_list = Shop::getContextListShopID();
+			if (count($this->id_shop_list) > 0)
+				$id_shop_list = $this->id_shop_list;
+		}
+		
 		// Database insertion
-		if (!$result = Db::getInstance()->insert($this->def['table'], $this->getFields(), $null_values))
+		if (isset($this->id))
+			unset($this->id);
+		if (Shop::checkIdShopDefault($this->def['table']))
+			$this->id_shop_default = min($id_shop_list);
+		if (!$result = ObjectModel::$db->insert($this->def['table'], $this->getFields(), $null_values))
 			return false;
 
 		// Get object id in database
-		$this->id = Db::getInstance()->Insert_ID();
+		$this->id = ObjectModel::$db->Insert_ID();
 
 		// Database insertion for multishop fields related to the object
-		if (!empty($this->def['multishop']))
+		if (Shop::isTableAssociated($this->def['table']))
 		{
 			$fields = $this->getFieldsShop();
 			$fields[$this->def['primary']] = (int)$this->id;
 
-			$id_shop_list = Shop::getContextListShopID();
-			if (count($this->id_shop_list) > 0)
-				$id_shop_list = $this->id_shop_list;
-
 			foreach ($id_shop_list as $id_shop)
 			{
 				$fields['id_shop'] = (int)$id_shop;
-				$result &= Db::getInstance()->insert($this->def['table'].'_shop', $fields, $null_values);
+				$result &= ObjectModel::$db->insert($this->def['table'].'_shop', $fields, $null_values);
 			}
 		}
-		else if (!Shop::isFeatureActive() && Shop::isTableAssociated($this->def['table']))
-			$result &= $this->associateTo(Context::getContext()->shop->id);
 
 		if (!$result)
 			return false;
-
-		$assos = Shop::getAssoTables();
 
 		// Database insertion for multilingual fields related to the object
 		if (!empty($this->def['multilang']))
 		{
 			$fields = $this->getFieldsLang();
-
-			// @todo : try to do something better than this
-			$shops = Shop::getCompleteListOfShopsID();
 			if ($fields && is_array($fields))
+			{
+				$shops = Shop::getCompleteListOfShopsID();
+				$asso = Shop::getAssoTable($this->def['table'].'_lang');
 				foreach ($fields as $field)
 				{
 					foreach (array_keys($field) as $key)
@@ -484,17 +499,18 @@ abstract class ObjectModelCore
 							throw new PrestaShopException('key '.$key.' is not table or identifier, ');
 					$field[$this->def['primary']] = (int)$this->id;
 
-					if (isset($assos[$this->def['table'].'_lang']) && $assos[$this->def['table'].'_lang']['type'] == 'fk_shop')
+					if ($asso !== false && $asso['type'] == 'fk_shop')
 					{
 						foreach ($shops as $id_shop)
 						{
 							$field['id_shop'] = (int)$id_shop;
-							$result &= Db::getInstance()->insert($this->def['table'].'_lang', $field);
+							$result &= ObjectModel::$db->insert($this->def['table'].'_lang', $field);
 						}
 					}
 					else
-						$result &= Db::getInstance()->insert($this->def['table'].'_lang', $field);
+						$result &= ObjectModel::$db->insert($this->def['table'].'_lang', $field);
 				}
+			}
 		}
 
 		// @hook actionObject*AddAfter
@@ -512,6 +528,9 @@ abstract class ObjectModelCore
 	 */
 	public function update($null_values = false)
 	{
+		if (!ObjectModel::$db)
+			ObjectModel::$db = Db::getInstance();
+
 		// @hook actionObject*UpdateBefore
 		Hook::exec('actionObjectUpdateBefore', array('object' => $this));
 		Hook::exec('actionObject'.get_class($this).'UpdateBefore', array('object' => $this));
@@ -521,13 +540,19 @@ abstract class ObjectModelCore
 		// Automatically fill dates
 		if (array_key_exists('date_upd', $this))
 			$this->date_upd = date('Y-m-d H:i:s');
+			
+		$id_shop_list = Shop::getContextListShopID();
+		if (count($this->id_shop_list) > 0)
+			$id_shop_list = $this->id_shop_list;
 
+		if (Shop::checkIdShopDefault($this->def['table']))
+			$this->id_shop_default = min($id_shop_list);
 		// Database update
-		if (!$result = Db::getInstance()->update($this->def['table'], $this->getFields(), '`'.pSQL($this->def['primary']).'` = '.(int)$this->id, 0, $null_values))
+		if (!$result = ObjectModel::$db->update($this->def['table'], $this->getFields(), '`'.pSQL($this->def['primary']).'` = '.(int)$this->id, 0, $null_values))
 			return false;
 
 		// Database insertion for multishop fields related to the object
-		if (!empty($this->def['multishop']))
+		if (Shop::isTableAssociated($this->def['table']))
 		{
 			$fields = $this->getFieldsShop();
 			$fields[$this->def['primary']] = (int)$this->id;
@@ -542,9 +567,6 @@ abstract class ObjectModelCore
 			else
 				$all_fields = $fields;
 
-			$id_shop_list = Shop::getContextListShopID();
-			if (count($this->id_shop_list) > 0)
-				$id_shop_list = $this->id_shop_list;
 
 			foreach ($id_shop_list as $id_shop)
 			{
@@ -554,11 +576,11 @@ abstract class ObjectModelCore
 
 				// A little explanation of what we do here : we want to create multishop entry when update is called, but
 				// only if we are in a shop context (if we are in all context, we just want to update entries that alread exists)
-				$shop_exists = Db::getInstance()->getValue('SELECT '.$this->def['primary'].' FROM '._DB_PREFIX_.$this->def['table'].'_shop WHERE '.$where);
+				$shop_exists = ObjectModel::$db->getValue('SELECT '.$this->def['primary'].' FROM '._DB_PREFIX_.$this->def['table'].'_shop WHERE '.$where);
 				if ($shop_exists)
-					$result &= Db::getInstance()->update($this->def['table'].'_shop', $fields, $where, 0, $null_values);
+					$result &= ObjectModel::$db->update($this->def['table'].'_shop', $fields, $where, 0, $null_values);
 				else if (Shop::getContext() == Shop::CONTEXT_SHOP)
-					$result &= Db::getInstance()->insert($this->def['table'].'_shop', $all_fields, $null_values);
+					$result &= ObjectModel::$db->insert($this->def['table'].'_shop', $all_fields, $null_values);
 			}
 		}
 
@@ -580,18 +602,17 @@ abstract class ObjectModelCore
 						$id_shop_list = Shop::getContextListShopID();
 						if (count($this->id_shop_list) > 0)
 							$id_shop_list = $this->id_shop_list;
-
 						foreach ($id_shop_list as $id_shop)
 						{
 							$field['id_shop'] = (int)$id_shop;
 							$where = pSQL($this->def['primary']).' = '.(int)$this->id
 										.' AND id_lang = '.(int)$field['id_lang']
-										.' AND id_shop = '.$field['id_shop'];
+										.' AND id_shop = '.(int)$id_shop;
 
-							if (Db::getInstance()->getValue('SELECT COUNT(*) FROM '.pSQL(_DB_PREFIX_.$this->def['table']).'_lang WHERE '.$where))
-								$result &= Db::getInstance()->update($this->def['table'].'_lang', $field, $where);
+							if (ObjectModel::$db->getValue('SELECT COUNT(*) FROM '.pSQL(_DB_PREFIX_.$this->def['table']).'_lang WHERE '.$where))
+								$result &= ObjectModel::$db->update($this->def['table'].'_lang', $field, $where);
 							else
-								$result &= Db::getInstance()->insert($this->def['table'].'_lang', $field);
+								$result &= ObjectModel::$db->insert($this->def['table'].'_lang', $field);
 						}
 					}
 					// If this table is not linked to multishop system ...
@@ -600,9 +621,9 @@ abstract class ObjectModelCore
 						$where = pSQL($this->def['primary']).' = '.(int)$this->id
 									.' AND id_lang = '.(int)$field['id_lang'];
 						if (Db::getInstance()->getValue('SELECT COUNT(*) FROM '.pSQL(_DB_PREFIX_.$this->def['table']).'_lang WHERE '.$where))
-							$result &= Db::getInstance()->update($this->def['table'].'_lang', $field, $where);
+							$result &= ObjectModel::$db->update($this->def['table'].'_lang', $field, $where);
 						else
-							$result &= Db::getInstance()->insert($this->def['table'].'_lang', $field, 'INSERT');
+							$result &= ObjectModel::$db->insert($this->def['table'].'_lang', $field, $null_values);
 					}
 				}
 			}
@@ -622,36 +643,36 @@ abstract class ObjectModelCore
 	 */
 	public function delete()
 	{
+		if (!ObjectModel::$db)
+			ObjectModel::$db = Db::getInstance();
+
 		// @hook actionObject*DeleteBefore
 		Hook::exec('actionObjectDeleteBefore', array('object' => $this));
 		Hook::exec('actionObject'.get_class($this).'DeleteBefore', array('object' => $this));
 
 		$this->clearCache();
 		$result = true;
-
 		// Remove association to multishop table
-		if (!empty($this->def['multishop']))
+		if (Shop::isTableAssociated($this->def['table']))
 		{
 			$id_shop_list = Shop::getContextListShopID();
 			if (count($this->id_shop_list))
 				$id_shop_list = $this->id_shop_list;
 
-			$result &= Db::getInstance()->delete($this->def['table'].'_shop', '`'.$this->def['primary'].'`='.(int)$this->id.' AND id_shop IN ('.implode(', ', $id_shop_list).')');
+			$result &= ObjectModel::$db->delete($this->def['table'].'_shop', '`'.$this->def['primary'].'`='.(int)$this->id.' AND id_shop IN ('.implode(', ', $id_shop_list).')');
 		}
-		else if (Shop::isTableAssociated($this->def['table']))
-			$result &= Db::getInstance()->delete($this->def['table'].'_shop', '`'.$this->def['primary'].'`='.(int)$this->id);
 
 		// Database deletion
-		$has_multishop_entries = !empty($this->def['multishop']) ? $this->hasMultishopEntries() : false;
+		$has_multishop_entries = $this->hasMultishopEntries();
 		if ($result && !$has_multishop_entries)
-			$result &= Db::getInstance()->delete($this->def['table'], '`'.pSQL($this->def['primary']).'` = '.(int)$this->id);
+			$result &= ObjectModel::$db->delete($this->def['table'], '`'.pSQL($this->def['primary']).'` = '.(int)$this->id);
 
 		if (!$result)
 			return false;
 
 		// Database deletion for multilingual fields related to the object
 		if (!empty($this->def['multilang']) && !$has_multishop_entries)
-			$result &= Db::getInstance()->delete($this->def['table'].'_lang', '`'.pSQL($this->def['primary']).'` = '.(int)$this->id);
+			$result &= ObjectModel::$db->delete($this->def['table'].'_lang', '`'.pSQL($this->def['primary']).'` = '.(int)$this->id);
 
 		// @hook actionObject*DeleteAfter
 		Hook::exec('actionObjectDeleteAfter', array('object' => $this));
@@ -943,7 +964,7 @@ abstract class ObjectModelCore
 			),
 		);
 
-		if (is_null($ws_params_attribute_name))
+		if ($ws_params_attribute_name === null)
 			$ws_params_attribute_name = 'webserviceParameters';
 
 		if (!isset($this->{$ws_params_attribute_name}['objectNodeName']))
@@ -1004,20 +1025,30 @@ abstract class ObjectModelCore
 
 	public function getWebserviceObjectList($sql_join, $sql_filter, $sql_sort, $sql_limit)
 	{
-		$assoc = Shop::getAssoTables();
-
-		if (array_key_exists($this->def['table'], $assoc))
+		$assoc = Shop::getAssoTable($this->def['table']);
+		$class_name = WebserviceRequest::$ws_current_classname;
+		$vars = get_class_vars($class_name);
+		if ($assoc !== false)
 		{
-			$multi_shop_join = ' LEFT JOIN `'._DB_PREFIX_.bqSQL($this->def['table']).'_'.bqSQL($assoc[$this->def['table']]['type']).'`
-									AS multi_shop_'.bqSQL($this->def['table']).'
-									ON (main.'.bqSQL($this->def['primary']).' = multi_shop_'.bqSQL($this->def['table']).'.'.bqSQL($this->def['primary']).')';
-			$class_name = WebserviceRequest::$ws_current_classname;
-			$vars = get_class_vars($class_name);
-			foreach ($vars['shopIDs'] as $id_shop)
-				$or[] = ' multi_shop_'.bqSQL($this->def['table']).'.id_shop = '.(int)$id_shop.' ';
-			$multi_shop_filter = ' AND ('.implode('OR', $or).') ';
-			$sql_filter = $multi_shop_filter.' '.$sql_filter;
-			$sql_join = $multi_shop_join.' '.$sql_join;
+			if ($assoc['type'] !== 'fk_shop')
+			{
+				$multi_shop_join = ' LEFT JOIN `'._DB_PREFIX_.bqSQL($this->def['table']).'_'.bqSQL($assoc['type']).'`
+										AS `multi_shop_'.bqSQL($this->def['table']).'`
+										ON (main.`'.bqSQL($this->def['primary']).'` = `multi_shop_'.bqSQL($this->def['table']).'`.`'.bqSQL($this->def['primary']).'`)';
+				$sql_filter = 'AND id_shop = '.Context::getContext()->shop->id.' '.$sql_filter;
+				$sql_join = $multi_shop_join.' '.$sql_join;
+			}
+			else
+			{
+				$vars = get_class_vars($class_name);
+				foreach ($vars['shopIDs'] as $id_shop)
+					$or[] = ' main.id_shop = '.(int)$id_shop.' ';
+				
+				$prepend = '';
+				if (count($or))
+					$prepend = 'AND ('.implode('OR', $or).')';
+				$sql_filter = $prepend.' '.$sql_filter;
+			}
 		}
 		$query = '
 		SELECT DISTINCT main.`'.bqSQL($this->def['primary']).'` FROM `'._DB_PREFIX_.bqSQL($this->def['table']).'` AS main
@@ -1025,8 +1056,29 @@ abstract class ObjectModelCore
 		WHERE 1 '.$sql_filter.'
 		'.($sql_sort != '' ? $sql_sort : '').'
 		'.($sql_limit != '' ? $sql_limit : '');
-
 		return Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS($query);
+	}
+
+	public function validateFieldsRequiredDatabase($htmlentities = true)
+	{
+		$errors = array();
+		$required_fields = (isset(self::$fieldsRequiredDatabase[get_class($this)])) ? self::$fieldsRequiredDatabase[get_class($this)] : array();
+
+		foreach ($this->def['fields'] as $field => $data)
+		{
+			if (!in_array($field, $required_fields))
+				continue;
+
+			if (!method_exists('Validate', $data['validate']))
+				throw new PrestaShopException('Validation function not found. '.$data['validate']);
+
+			$value = Tools::getValue($field);
+
+			if (empty($value))
+				$errors[] = sprintf(Tools::displayError('The field %s is required.'), self::displayFieldName($field, get_class($this), $htmlentities));
+		}
+
+		return $errors;
 	}
 
 	public function getFieldsRequiredDatabase($all = false)
@@ -1068,7 +1120,7 @@ abstract class ObjectModelCore
 	 */
 	public function isAssociatedToShop($id_shop = null)
 	{
-		if (is_null($id_shop))
+		if ($id_shop === null)
 			$id_shop = Context::getContext()->shop->id;
 
 		$sql = 'SELECT id_shop
@@ -1148,22 +1200,21 @@ abstract class ObjectModelCore
 	}
 
 	/**
-	 * Check if there is entries in associated shop table for current entity
+	 * Check if there is more than one entries in associated shop table for current entity
 	 *
 	 * @since 1.5.0
 	 * @return bool
 	 */
 	public function hasMultishopEntries()
 	{
-		if (empty($this->def['multishop']))
-			return false;
-
+		if (!Shop::isTableAssociated($this->def['table']) || !Shop::isFeatureActive())
+			return false; 
 		return (bool)Db::getInstance()->getValue('SELECT COUNT(*) FROM `'._DB_PREFIX_.$this->def['table'].'_shop` WHERE `'.$this->def['primary'].'` = '.(int)$this->id);
 	}
 
 	public function isMultishop()
 	{
-		return !empty($this->def['multishop']) || !empty($this->def['multilang_shop']);
+		return Shop::isTableAssociated($this->def['table']) || !empty($this->def['multilang_shop']);
 	}
 
 	public function isLangMultishop()
@@ -1211,30 +1262,33 @@ abstract class ObjectModelCore
 	 *
 	 * @return bool success
 	 */
-	public function deleteImage()
+	public function deleteImage($force_delete = false)
 	{
 		if (!$this->id)
 			return false;
-
-		/* Deleting object images and thumbnails (cache) */
-		if ($this->image_dir)
+		
+		if ($force_delete || !$this->hasMultishopEntries())
 		{
-			if (file_exists($this->image_dir.$this->id.'.'.$this->image_format)
-				&& !unlink($this->image_dir.$this->id.'.'.$this->image_format))
+			/* Deleting object images and thumbnails (cache) */
+			if ($this->image_dir)
+			{
+				if (file_exists($this->image_dir.$this->id.'.'.$this->image_format)
+					&& !unlink($this->image_dir.$this->id.'.'.$this->image_format))
+					return false;
+			}
+			if (file_exists(_PS_TMP_IMG_DIR_.$this->def['table'].'_'.$this->id.'.'.$this->image_format)
+				&& !unlink(_PS_TMP_IMG_DIR_.$this->def['table'].'_'.$this->id.'.'.$this->image_format))
 				return false;
+			if (file_exists(_PS_TMP_IMG_DIR_.$this->def['table'].'_mini_'.$this->id.'.'.$this->image_format)
+				&& !unlink(_PS_TMP_IMG_DIR_.$this->def['table'].'_mini_'.$this->id.'.'.$this->image_format))
+				return false;
+	
+			$types = ImageType::getImagesTypes();
+			foreach ($types as $image_type)
+				if (file_exists($this->image_dir.$this->id.'-'.stripslashes($image_type['name']).'.'.$this->image_format)
+				&& !unlink($this->image_dir.$this->id.'-'.stripslashes($image_type['name']).'.'.$this->image_format))
+					return false;
 		}
-		if (file_exists(_PS_TMP_IMG_DIR_.$this->def['table'].'_'.$this->id.'.'.$this->image_format)
-			&& !unlink(_PS_TMP_IMG_DIR_.$this->def['table'].'_'.$this->id.'.'.$this->image_format))
-			return false;
-		if (file_exists(_PS_TMP_IMG_DIR_.$this->def['table'].'_mini_'.$this->id.'.'.$this->image_format)
-			&& !unlink(_PS_TMP_IMG_DIR_.$this->def['table'].'_mini_'.$this->id.'.'.$this->image_format))
-			return false;
-
-		$types = ImageType::getImagesTypes();
-		foreach ($types as $image_type)
-			if (file_exists($this->image_dir.$this->id.'-'.stripslashes($image_type['name']).'.'.$this->image_format)
-			&& !unlink($this->image_dir.$this->id.'-'.stripslashes($image_type['name']).'.'.$this->image_format))
-				return false;
 		return true;
 	}
 
@@ -1263,8 +1317,11 @@ abstract class ObjectModelCore
 	 * @param bool $has_active_column true if the table has an active column
 	 * @return bool
 	 */
-	public static function isCurrentlyUsed($table, $has_active_column = false)
+	public static function isCurrentlyUsed($table = null, $has_active_column = false)
 	{
+		if ($table === null)
+			$table = self::$definition['table'];
+
 		$query = new DbQuery();
 		$query->select('`id_'.pSQL($table).'`');
 		$query->from($table);

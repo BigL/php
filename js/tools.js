@@ -73,6 +73,8 @@ function formatCurrency(price, currencyFormat, currencySign, currencyBlank)
 		return (currencySign + blank + formatNumber(price, priceDisplayPrecision, '.', ','));
 	if (currencyFormat == 4)
 		return (formatNumber(price, priceDisplayPrecision, ',', '.') + blank + currencySign);
+	if (currencyFormat == 5)
+		return (formatNumber(price, priceDisplayPrecision, ' ', '.') + blank + currencySign);
 	return price;
 }
 
@@ -276,7 +278,7 @@ function isArrowKey(k_ev)
 	var unicode=k_ev.keyCode? k_ev.keyCode : k_ev.charCode;
 	if (unicode >= 37 && unicode <= 40)
 		return true;
-
+	return false;
 }
 
 //On dom ready

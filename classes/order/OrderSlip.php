@@ -67,9 +67,9 @@ class OrderSlipCore extends ObjectModel
 			'id_customer' => 			array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
 			'id_order' => 				array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true),
 			'conversion_rate' => 		array('type' => self::TYPE_FLOAT, 'validate' => 'isFloat', 'required' => true),
-			'amount' => 				array('type' => self::TYPE_INT),
+			'amount' => 				array('type' => self::TYPE_FLOAT, 'validate' => 'isFloat'),
 			'shipping_cost' => 			array('type' => self::TYPE_INT),
-			'shipping_cost_amount' =>	array('type' => self::TYPE_FLOAT),
+			'shipping_cost_amount' =>	array('type' => self::TYPE_FLOAT, 'validate' => 'isFloat'),
 			'partial' =>				array('type' => self::TYPE_INT),
 			'date_add' => 				array('type' => self::TYPE_DATE, 'validate' => 'isDate'),
 			'date_upd' => 				array('type' => self::TYPE_DATE, 'validate' => 'isDate'),
@@ -78,14 +78,21 @@ class OrderSlipCore extends ObjectModel
 
 	public function addSlipDetail($orderDetailList, $productQtyList)
 	{
-		foreach ($orderDetailList as $key => $orderDetail)
+		foreach ($orderDetailList as $key => $id_order_detail)
 		{
 			if ($qty = (int)($productQtyList[$key]))
-				Db::getInstance()->insert('order_slip_detail', array(
-					'id_order_slip' => (int)$this->id,
-					'id_order_detail' => (int)$orderDetail,
-					'product_quantity' => $qty,
-				));
+			{
+				$order_detail = new OrderDetail((int)$id_order_detail);
+
+				if (Validate::isLoadedObject($order_detail))
+					Db::getInstance()->insert('order_slip_detail', array(
+						'id_order_slip' => (int)$this->id,
+						'id_order_detail' => (int)$id_order_detail,
+						'product_quantity' => $qty,
+						'amount_tax_excl' => $order_detail->unit_price_tax_excl * $qty,
+						'amount_tax_incl' => $order_detail->unit_price_tax_incl * $qty
+					));
+			}
 		}
 	}
 
@@ -99,7 +106,7 @@ class OrderSlipCore extends ObjectModel
 		ORDER BY `date_add` DESC');
 	}
 
-	public static function getOrdersSlipDetail($id_order_slip = true, $id_order_detail = false)
+	public static function getOrdersSlipDetail($id_order_slip = false, $id_order_detail = false)
 	{
 		return Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS(
 		($id_order_detail ? 'SELECT SUM(`product_quantity`) AS `total`' : 'SELECT *').
@@ -108,46 +115,64 @@ class OrderSlipCore extends ObjectModel
 		.($id_order_detail ? ' WHERE `id_order_detail` = '.(int)($id_order_detail) : ''));
 	}
 
-	// TODO clean getProducts($resTab) => now getProducts method don't use his parameters
 	public static function getOrdersSlipProducts($orderSlipId, $order)
 	{
 		$cart_rules = $order->getCartRules(true);
 		$productsRet = OrderSlip::getOrdersSlipDetail($orderSlipId);
-		$products = $order->getProductsDetail();
+		$order_details = $order->getProductsDetail();
 
-		$tmp = array();
+		$slip_quantity = array();
 		foreach ($productsRet as $slip_detail)
-			$tmp[$slip_detail['id_order_detail']] = $slip_detail['product_quantity'];
-		$resTab = array();
-		foreach ($products as $key => $product)
-			if (isset($tmp[$product['id_order_detail']]))
+			$slip_quantity[$slip_detail['id_order_detail']] = $slip_detail['product_quantity'];
+		$products = array();
+		foreach ($order_details as $key => $product)
+			if (isset($slip_quantity[$product['id_order_detail']]))
 			{
-				$resTab[$key] = $product;
-				$resTab[$key]['product_quantity'] = $tmp[$product['id_order_detail']];
+				$products[$key] = $product;
+				$products[$key]['product_quantity'] = $slip_quantity[$product['id_order_detail']];
 				if (count($cart_rules))
 				{
 					$order->setProductPrices($product);
-					$realProductPrice = $resTab[$key]['product_price'];
+					$realProductPrice = $products[$key]['product_price'];
 					// Todo : must be updated to use the cart rules
 					foreach ($cart_rules as $cart_rule)
 					{
 						if ($cart_rule['reduction_percent'])
-							$resTab[$key]['product_price'] -= $realProductPrice * ($cart_rule['reduction_percent'] / 100);
+							$products[$key]['product_price'] -= $realProductPrice * ($cart_rule['reduction_percent'] / 100);
 						elseif ($cart_rule['reduction_amount'])
-							$resTab[$key]['product_price'] -= (($cart_rule['reduction_amount'] * ($product['product_price_wt'] / $order->total_products_wt)) / (1.00 + ($product['tax_rate'] / 100)));
+							$products[$key]['product_price'] -= (($cart_rule['reduction_amount'] * ($product['product_price_wt'] / $order->total_products_wt)) / (1.00 + ($product['tax_rate'] / 100)));
 					}
-
 				}
 			}
-		return $order->getProducts($resTab);
+		return $order->getProducts($products);
 	}
-	
+
+	/**
+	 * 
+	 * Get resume of all refund for one product line
+	 * @param $id_order_detail
+	 */
 	public static function getProductSlipResume($id_order_detail)
 	{
 		return Db::getInstance(_PS_USE_SQL_SLAVE_)->getRow('
 			SELECT SUM(product_quantity) product_quantity, SUM(amount_tax_excl) amount_tax_excl, SUM(amount_tax_incl) amount_tax_incl
 			FROM `'._DB_PREFIX_.'order_slip_detail`
 			WHERE `id_order_detail` = '.(int)$id_order_detail);
+	}
+	
+	/**
+	 * 
+	 * Get refund details for one product line
+	 * @param $id_order_detail
+	 */
+	public static function getProductSlipDetail($id_order_detail)
+	{
+		return Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS('
+			SELECT product_quantity, amount_tax_excl, amount_tax_incl, date_add
+			FROM `'._DB_PREFIX_.'order_slip_detail` osd
+			LEFT JOIN `'._DB_PREFIX_.'order_slip` os
+			ON os.id_order_slip = osd.id_order_slip
+			WHERE osd.`id_order_detail` = '.(int)$id_order_detail);
 	}
 
 	public function getProducts()
@@ -261,6 +286,5 @@ class OrderSlipCore extends ObjectModel
 			Db::getInstance()->insert('order_slip_detail', $insertOrderSlip);
 		}
 	}
-
 }
 

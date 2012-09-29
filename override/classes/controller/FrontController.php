@@ -4,9 +4,9 @@
 * only added customizationBlock
 *
 * @copyright  Personera
-* @see        
+* @see
 * @author     Shadley Wentzel <shadley@personera.com>
-* @package    
+* @package
 */
 
 class FrontController extends FrontControllerCore
@@ -16,7 +16,7 @@ class FrontController extends FrontControllerCore
 	/**
 	 * Function to overide the default initContent function so we can add custon hooks
 	 * Added Hooks:
-	 *              customizationBlock - 	Hook for product customization 
+	 *              customizationBlock - 	Hook for product customization
 	 *				paymentConfirmation -	Hook for displaying content after order has been confirmed
 	 *
 	 * @param void
@@ -46,13 +46,36 @@ class FrontController extends FrontControllerCore
 				'HOOK_MOBILE_HEADER' => Hook::exec('displayMobileHeader'),
 			));
 		}
-    // Tools::dieObject($this->context->smarty);
-		$verify_fbclient = $this->isfbLoggedin();
-		// Tools::dieObject($this->context->smarty);
+     
+		
+		$fb_user_data = CustomerAuthentication::isfbLoggedin(
+                                            $this->context->shop->id_shop_group,
+                                            $this->context->shop->id,
+                                            $this->context->customer->id,
+                                            $this->context->shop->domain
+                                          );
+
+    if( is_object($fb_user_data) && isset( $fb_user_data->id )){
+      #logout the user partially
+      $this->context->customer->logged=1;
+      $this->context->cookie->logged = 1;
+      $show_fb_connect = 0;
+    }else{
+      $this->context->customer->logged=0;
+      $this->context->cookie->logged = 0;
+      $show_fb_connect = 1; 
+    }
     
+    $this->context->smarty->assign(array(
+                                          "show_fb_connect" => $show_fb_connect,
+                                          "logged" =>$this->context->customer->logged
+                                          ));
+
+    // Tools::dieObject($fb_user_data,false);
+    // Tools::dieObject($this->context->cookie);
 	}
 
-	public function setMedia() 
+	public function setMedia()
 	{
 		/*
         * Use Google Libraries API to host jQuery
@@ -62,63 +85,18 @@ class FrontController extends FrontControllerCore
 
         $index = array_search(_PS_JS_DIR_ . 'jquery/jquery-1.4.4.min.js', $this->context->controller->js_files);
 
-        if ($index !== false){
-            array_splice($this->context->controller->js_files, $index, 1, array('//ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js'));
-        } else {
-            $this->context->controller->js_files[] = '//ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js';
+       # if ($index !== false){
+       #     array_splice($this->context->controller->js_files, $index, 1, array('//ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js'));
+       # } else {
+       #     $this->context->controller->js_files[] = '//ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js';
 
-        }
-        
+        #        }
         #load add jquery ui for goodies we need
-        $this->context->controller->js_files[] = '//ajax.googleapis.com/ajax/libs/jqueryui/1.8.23/jquery-ui.min.js';
-        
-                
-               
+        // $this->context->controller->js_files[] = '//ajax.googleapis.com/ajax/libs/jqueryui/1.8.23/jquery-ui.min.js';
+        // Tools::dieObject($this->context->smarty);
+
+
     }
 
-private function isfbLoggedin()
-    {
-
-    $app_id = (Configuration::get('FB_APPID', null, $this->context->shop->id_shop_group, $this->context->shop->id));
-    $app_secret = (Configuration::get('FB_SECRET', null, $this->context->shop->id_shop_group, $this->context->shop->id));
-
-    $fbClient = new Facebook(array(
-            'appId'  => "{$app_id}",
-            'secret' => "{$app_secret}",
-            'cookie' => true,
-            'domain' => "{$this->context->shop->domain}"
-        ));
-
-      $customer_authentication = CustomerAuthentication::getByCustomerId($this->context->customer->id, $this->context->customer->id_shop);
-
-      if($customer_authentication)
-        $fbClient->setAccessToken($customer_authentication->access_token);
-
-      $user = $fbClient->getUser();
-      
-      if ($user) {
-        try {
-          // Proceed knowing you have a logged in user who's authenticated.
-          $fb_user_data = $fbClient->api('/me');
-          $fb_user_data = (object) $fb_user_data;
-        } catch (FacebookApiException $e) {
-          error_log($e);
-
-          $user = null;
-        }
-      }
-
-
-      if(!isset($fb_user_data->id)){
-        #logout the user partially
-        $this->context->customer->logged=0;
-        $this->context->cookie->logged=0;
-      }else{
-        $this->context->customer->logged=1;
-      }
-
-      return $this->context->customer->logged;
-  }
-
-
+  
 }

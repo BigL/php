@@ -36,7 +36,7 @@ class CustomerAuthentication extends ObjectModel
 			'id_customer' 				=> 	array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true, 'size' => 20),
 			'id_authentication_method'  => 	array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true, 'size' => 20),
 			'id_shop' 					=>  array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'copy_post' => false, 'size' => 20),
-			'id_group_shop' 			=>  array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'copy_post' => false, 'size' => 20),
+			'id_shop_group' 			=>  array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'copy_post' => false, 'size' => 20),
 			'uid' 						=>  array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId', 'required' => true, 'size' => 20),
 			'access_token' 				=>  array('type' => self::TYPE_STRING, 'validate' => 'isGenericName', 'required' => true, 'size' => 200),
 			'date_add' 					=> 	array('type' => self::TYPE_DATE, 'validate' => 'isDate'),
@@ -55,7 +55,7 @@ class CustomerAuthentication extends ObjectModel
 	public function add($autodate = true, $null_values = true)
 	{
 		$this->id_shop = ($this->id_shop) ? $this->id_shop : Context::getContext()->shop->id;
-		$this->id_group_shop = ($this->id_group_shop) ? $this->id_group_shop : Context::getContext()->shop->id_group_shop;
+		$this->id_shop_group = ($this->id_shop_group) ? $this->id_shop_group : Context::getContext()->shop->id_shop_group;
 		
 	 	$success = parent::add($autodate, $null_values);
 		return $success;
@@ -105,4 +105,47 @@ class CustomerAuthentication extends ObjectModel
 		return $retrieved_customer_authentication;
 	}
 
+	/**
+	 * verify with facebook that the access token is still valid - seriously ?
+	 *
+	 * @param integer $id_shop_group  group id which the shop belong 
+	 * @param integer $id_shop id of current shop
+	 * @param integer $id_customer  Id of customer
+	 * @param String domain url of the website
+	 * @return fbuser object , null gets returned   
+	 *
+	 */
+	public static function isfbLoggedin($id_shop_group, $id_shop,$id_customer,$domain)
+    {
+
+    $app_id = (Configuration::get('FB_APPID', null, $id_shop_group, $id_shop));
+    $app_secret = (Configuration::get('FB_SECRET', null, $id_shop_group, $id_shop));
+
+    $fbClient = new Facebook(array(
+            'appId'  => "{$app_id}",
+            'secret' => "{$app_secret}",
+            'cookie' => true,
+            'domain' => "{$domain}"
+        ));
+
+      $customer_authentication = CustomerAuthentication::getByCustomerId($id_customer, $id_shop);
+
+      if($customer_authentication)
+        $fbClient->setAccessToken($customer_authentication->access_token);
+
+      $user = $fbClient->getUser();
+      $fbuser = null;
+      if ($user) {
+        try {
+          // Proceed knowing you have a logged in user who's authenticated.
+          $fb_user_data = $fbClient->api('/me');
+          $fbuser = (object) $fb_user_data;
+        } catch (FacebookApiException $e) {
+          error_log($e);
+          $fbuser = null;
+        }
+      }
+      
+      return $fbuser;
+  }
 }

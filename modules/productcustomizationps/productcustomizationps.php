@@ -61,7 +61,7 @@ class ProductCustomizationPS extends Module
   public function createTbl()
   {
     Db::getInstance()->execute('
-      CREATE TABLE `'._DB_PREFIX_.'printspecs` (
+      CREATE TABLE IF NOT EXISTS  `'._DB_PREFIX_.'printspecs` (
         `id_printspec` int(11) NOT NULL AUTO_INCREMENT,
         `id_order` int(10) unsigned DEFAULT NULL,
         `id_cart` int(10) unsigned NOT NULL,
@@ -79,7 +79,7 @@ class ProductCustomizationPS extends Module
       ) ENGINE=InnoDB DEFAULT CHARSET=latin1;');
 
     Db::getInstance()->execute('
-      CREATE TABLE `'._DB_PREFIX_.'state_events` (
+      CREATE TABLE IF NOT EXISTS `'._DB_PREFIX_.'state_events` (
         `id_state_event` int(11) NOT NULL AUTO_INCREMENT,
         `id_stateful` int(10) unsigned NOT NULL,
         `id_customer` int(10) unsigned NOT NULL,
@@ -148,9 +148,10 @@ class ProductCustomizationPS extends Module
 
     # Get Product features
     $product_features = $product->getFrontFeaturesArrangeByFeature(Context::getContext()->language->id);
-
+    // Tools::dieObject( $product_features ); 
     # handle case for calender product template
-    if($product_features[9]['value'] == 'Calender'){
+
+    if(count($product_features) > 0 && $product_features[8]['value'] == 'Calender'){
       # this is the case of a calender product which
       # needs to use the external Calender API
 
@@ -196,7 +197,7 @@ class ProductCustomizationPS extends Module
       $smarty->assign(array(
         'fb_app_id' => (Configuration::get('FB_APPID', null, $this->context->shop->id_group_shop, $this->context->shop->id)),
         'product_price' => $product->price,
-        'product_type' => $product_features[9]['value'],
+        'product_type' => $product_features[8]['value'],
         'project_guid' => $project_data->project_guid,
         'preview_url' => Configuration::get('PS_STORE_DOMAIN', null, $this->context->shop->id_group_shop, $this->context->shop->id).'/project/calendarpreview',
         'month' => (int)date('n'),
@@ -212,19 +213,18 @@ class ProductCustomizationPS extends Module
        * this is the case of photobook, poster or postcard any product
        * that use the swf to do customization and previewing
        */
+
       $smarty->assign(array(
-        'fb_app_id' => (Configuration::get('FB_APPID', null, $this->context->shop->id_group_shop, $this->context->shop->id)),
+        'fb_app_id' => (Configuration::get('FB_APPID', null, $this->context->shop->id_shop_group, $this->context->shop->id)),
         'product_price' => $product->price,
-        'design_id' => $product_features[7]['value'],
+        'design_id' => (count($product_features) > 0)? $product_features[7]['value']: "",
         'guid' => Printspec::generate_uuid(),
-        'product_type' => $product_features[9]['value']
+        'product_type' => (count($product_features) > 0)?$product_features[8]['value']:""
       ));
 
       # use default template for product
       $template_name = 'productcustomizationps.tpl';
     }
-
-    $check_fbclient = $this->isfbLoggedin();
 
     if($product_features)
     {
@@ -382,45 +382,5 @@ class ProductCustomizationPS extends Module
     return $decoded_response->message;
   }
 
-  private function isfbLoggedin()
-    {
 
-    $app_id = (Configuration::get('FB_APPID', null, $this->context->shop->id_group_shop, $this->context->shop->id));
-    $app_secret = (Configuration::get('FB_SECRET', null, $this->context->shop->id_group_shop, $this->context->shop->id));
-
-    $fbClient = new Facebook(array(
-            'appId'  => "{$app_id}",
-            'secret' => "{$app_secret}",
-            'cookie' => true,
-            'domain' => "{$this->context->shop->domain}"
-        ));
-
-      $customer_authentication = CustomerAuthentication::getByCustomerId($this->context->customer->id, $this->context->customer->id_shop);
-
-      $fbClient->setAccessToken($customer_authentication->access_token);
-
-      $user = $fbClient->getUser();
-      if ($user) {
-        try {
-          // Proceed knowing you have a logged in user who's authenticated.
-          $fb_user_data = $fbClient->api('/me');
-          $fb_user_data = (object) $fb_user_data;
-        } catch (FacebookApiException $e) {
-          error_log($e);
-
-          $user = null;
-        }
-      }
-
-
-      if(!$fb_user_data->id){
-        #logout the user partially
-        $this->context->customer->logged=0;
-        $this->context->cookie->logged=0;
-      }else{
-        $this->context->customer->logged=1;
-      }
-
-      return $this->context->customer->logged;
-  }
 }

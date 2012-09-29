@@ -39,7 +39,7 @@ $smarty->force_compile = (Configuration::get('PS_SMARTY_FORCE_COMPILE') == _PS_S
 $smarty->compile_check = (Configuration::get('PS_SMARTY_FORCE_COMPILE') == _PS_SMARTY_CHECK_COMPILE_) ? true : false;
 
 // Production mode
-$smarty->debugging = false;
+$smarty->debugging = true;
 $smarty->debugging_ctrl = 'NONE';
 
 if (Configuration::get('PS_SMARTY_CONSOLE') == _PS_SMARTY_CONSOLE_OPEN_BY_URL_)

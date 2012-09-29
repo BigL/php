@@ -38,7 +38,7 @@
             swfobject.embedSWF("{$base_dir}modules/productcustomizationps/swf/photobook/PersoneraPhotoBook-v2-2.swf", "personera-swf", "100%", "600", "10.2", "{$base_dir}modules/productcustomizationps/swf/photobook/playerProductInstall.swf", flashvars, params, attributes);
 
             swfobject.createCSS("#personera-swf", "display:block;text-align:left;");
-            {/if}
+             {/if}
         }
     
         window.igAsyncInit = function() {   
@@ -53,8 +53,7 @@
             var e = document.createElement('script'); e.async = true;
             e.src = 'http://personera-public-images.s3.amazonaws.com/photobook/swf/instagram-min.js';
             document.getElementById('ig-root').appendChild(e);
-        }()
-        );
+        }());
 
     });
 

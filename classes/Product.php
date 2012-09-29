@@ -1645,7 +1645,7 @@ class ProductCore extends ObjectModel
 		$product_attributes = array();
 		foreach ($combinations as $combination)
 			$product_attributes[] = (int)$combination['id_product_attribute'];
-		
+		 // Tools::dieObject($product_attributes);
 		$lang = Db::getInstance()->executeS('SELECT pac.id_product_attribute, GROUP_CONCAT(agl.`name`, \''.pSQL($attribute_value_separator).'\',al.`name` ORDER BY agl.`id_attribute_group` SEPARATOR \''.pSQL($attribute_separator).'\') as attribute_designation
 				FROM `'._DB_PREFIX_.'product_attribute_combination` pac 
 				LEFT JOIN `'._DB_PREFIX_.'attribute` a ON a.`id_attribute` = pac.`id_attribute`
@@ -1654,7 +1654,8 @@ class ProductCore extends ObjectModel
 				LEFT JOIN `'._DB_PREFIX_.'attribute_group_lang` agl ON (ag.`id_attribute_group` = agl.`id_attribute_group` AND agl.`id_lang` = '.(int)$id_lang.')
 				WHERE pac.id_product_attribute IN ('.implode(',', $product_attributes).')
 				GROUP BY pac.id_product_attribute');
-		
+		if(!$lang)
+			$lang=array();
 		foreach ($lang as $k => $row)
 			$combinations[$k]['attribute_designation'] = $row['attribute_designation'];
 			

@@ -7,13 +7,14 @@
 * 23dab46b16d2af8b8d8f9939f696576e
 *
 * @copyright  Personera
-* @see
+* @see        overide/classes/CustomerAuthentications.php, overide/classes/AuthenticationMethod.php,
 * @author     Shadley Wentzel <shadley@personera.com>
 * @package    Authsocial PS
 */
 
 if (!defined('_PS_VERSION_'))
   exit;
+
 class AuthSocialPS extends Module
 {
 
@@ -32,24 +33,33 @@ class AuthSocialPS extends Module
     $this->confirmUninstall = $this->l('Are you sure you want to uninstall?');
   }
 
+
+  /**
+   * Function to install module
+   *
+   * @param void
+   * @return boolean If the function completed successfully
+   *
+   */
   public function install()
   {
-    if (parent::install() == false OR !$this->registerHook('header') OR !$this->registerHook('top') OR !$this->createTbl())
+    if (parent::install() == false OR !$this->registerHook('header') OR !$this->registerHook('customizationBlock') OR !$this->createTbl() )
       return false;
     return true;
   }
+
 
   /**
    * Function to install default tables
    *
    * @param void
-   * @return void
+   * @return boolean If the function completed successfully
    *
    */
   public function createTbl()
   {
     Db::getInstance()->execute('
-      CREATE TABLE `'._DB_PREFIX_.'authentication_methods` (
+      CREATE TABLE IF NOT EXISTS `'._DB_PREFIX_.'authentication_methods` (
         `id_authentication_method` int(11) NOT NULL AUTO_INCREMENT,
         `environment` varchar(255) DEFAULT NULL,
         `provider` varchar(255) DEFAULT NULL,
@@ -64,7 +74,7 @@ class AuthSocialPS extends Module
     Db::getInstance()->Execute('INSERT INTO `'._DB_PREFIX_.'authentication_methods` (`id_authentication_method`, `environment`, `provider`, `api_key`, `api_secret`, `is_active`, `date_add`, `date_upd`) VALUES (1, "development", "facebook", "306979302708349", "23dab46b16d2af8b8d8f9939f696576e", 1,'.date("Y-md-d").','.date("Y-m-d").');');
 
     Db::getInstance()->execute('
-    CREATE TABLE `'._DB_PREFIX_.'customer_authentications` (
+    CREATE TABLE IF NOT EXISTS `'._DB_PREFIX_.'customer_authentications` (
       `id_customer_authentication` int(11) NOT NULL AUTO_INCREMENT,
       `id_customer` int(32) unsigned NOT NULL,
       `id_authentication_method` int(10) unsigned NOT NULL,
@@ -73,36 +83,54 @@ class AuthSocialPS extends Module
       `uid` int(32) DEFAULT NULL,
       `date_add` datetime DEFAULT NULL,
       `date_upd` datetime DEFAULT NULL,
+      `date_exp` datetime DEFAULT NULL,
       PRIMARY KEY (`id_customer_authentication`)
     ) ENGINE=InnoDB DEFAULT CHARSET=latin1;');
 
     Db::getInstance()->Execute('INSERT INTO `'._DB_PREFIX_.'configuration` (`name`) VALUES ("FB_APPID");');
     Db::getInstance()->Execute('INSERT INTO `'._DB_PREFIX_.'configuration` (`name`) VALUES ("FB_SECRET");');
+
     return true;
   }
 
 
+  /**
+   * Function to un-install module
+   *
+   * @param void
+   * @return boolean If the function completed successfully
+   *
+   */
   public function uninstall()
   {
     # Delete configuration
-    return (parent::uninstall() AND $this->unregisterHook(Hook::get('rightColumn')) AND $this->unregisterHook(Hook::get('top'))  AND $this->removeTbl() );
+    if (!parent::uninstall() || 
+        !$this->removeTbl() );
+       return false;
+
+    return true;
+    // return (parent::uninstall() AND $this->unregisterHook(Hook::get('rightColumn')) 
+    // AND $this->unregisterHook(Hook::get('customizationBlock'))  
+    // AND $this->removeTbl() );
   }
+
+ 
 
   /**
    * Function to remove tables
    *
    * @param void
-   * @return void
+   * @return boolean If the function completed successfully
    *
    */
   public function removeTbl()
   {
     Db::getInstance()->Execute('DELETE FROM `'._DB_PREFIX_.'configuration` WHERE `name` = "FB_APPID";');
     Db::getInstance()->Execute('DELETE FROM `'._DB_PREFIX_.'configuration` WHERE `name` = "FB_SECRET";');
-    Db::getInstance()->Execute('DROP TABLE `'._DB_PREFIX_.'authentication_methods`;');
-    Db::getInstance()->Execute('DROP TABLE `'._DB_PREFIX_.'customer_authentications`;');
+    Db::getInstance()->Execute('DELETE FROM `'._DB_PREFIX_.'authentication_methods` WHERE `id_authentication_method` =1;');
     return true;
   }
+
 
   public function getContent()
   {
@@ -129,6 +157,14 @@ class AuthSocialPS extends Module
     return $output.$this->displayForm();
   }
 
+
+  /**
+   * Function to render the admin configuration form
+   *
+   * @param void
+   * @return string The configuration form
+   *
+   */
   public function displayForm()
   {
     $output = '
@@ -150,45 +186,46 @@ class AuthSocialPS extends Module
         <center><input type="submit" name="submitFBKey" value="'.$this->l('Save').'" class="button" /></center>
       </fieldset>
     </form>';
-
     return $output;
   }
 
+
+  /**
+   * Function to hook into Header hook
+   *
+   * @param void
+   * @return void
+   *
+   */
   public function hookHeader()
   {
       $this->context->controller->addCSS($this->_path.'authsocialps.css', 'all');
   }
 
-
   /**
-   * Function to hook into top of page hook
-   *
+   * Function to hook into customizationBlock hook
+   * Notes: I changed this to use the cusomizationblock from hooktop so that access template vars of customization too
    * @param $params Array of parameters passed in this request
    * @return Template to show the social logins
-   *
+   *super-18x14-toda-ocasión-p12-pasta-suave
    */
-    public function hookTop($params)
-    {
-        global $smarty, $cookie;
+  public function hookCustomizationBlock($params)
+  {
+    global $smarty, $cookie;
+    
+    
 
-        $this->context->controller->addCSS($this->_path.'css/authsocialps_top.css');
-
-
-        require_once (_PS_MODULE_DIR_.'authsocialps/classes/CustomerAuthentication.php');
-        $db_Customerauth = new CustomerAuthentication();
-
-        $fb_user_data = $db_Customerauth->getByCustomerId($this->context->customer->id, $this->context->customer->id_shop);
-        //echo "<pre>";print_r($fb_user_data);print_r($this->context->customer);
-        //die();
-
-        $smarty->assign(array(
-        'appid' => (Configuration::get('FB_APPID', null, $this->context->shop->id_shop_group, $this->context->shop->id)),
-        'fbsecret' => (Configuration::get('FB_SECRET', null, $this->context->shop->id_shop_group, $this->context->shop->id)),
-        'fb_uid' => $fb_user_data->uid,
-        'logged' => $this->context->customer->isLogged(),
-        ));
-
-        return $this->display(__FILE__,'authsocialps_top.tpl');
-    }
+    $this->context->controller->addCSS( $this->_path.'css/authsocialps_top.css');
+    $this->context->controller->addJS( _PS_JS_DIR_ . 'jquery/jquery-ui.will.be.removed.in.1.6.js' );
+    
+    $this->context->smarty->assign(array(
+      'appid' => (Configuration::get('FB_APPID', null, $this->context->shop->id_shop_group, $this->context->shop->id)),
+      'fbsecret' => (Configuration::get('FB_SECRET', null, $this->context->shop->id_shop_group, $this->context->shop->id)),
+      'fbButtonString' => $this->l('Authenticate Using Your Facebook'),
+      
+    ));
+    
+    return $this->display(__FILE__,'authsocialps_top.tpl');
+  }
 
 }

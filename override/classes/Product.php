@@ -23,12 +23,10 @@ class Product extends ProductCore
 	{
 		
 		$results = array();
-		foreach($this->getFrontFeatures($id_lang) as $feature ){
-		// Tools::dieObject($feature);
-			// kkk
+		foreach($this->getFrontFeatures($id_lang) as $feature ){		
 			$results[$feature['id_feature']] = $feature;
 		}
-
+		
 		return $results;
 	}
 }

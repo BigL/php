@@ -194,7 +194,7 @@ class ProductCustomizationPS extends Module
         );
 
       # add variables for calender product to smarty
-      $smarty->assign(array(
+      $this->context->smarty->assign(array(
         'fb_app_id' => (Configuration::get('FB_APPID', null, $this->context->shop->id_group_shop, $this->context->shop->id)),
         'product_price' => $product->price,
         'product_type' => $product_features[8]['value'],
@@ -214,7 +214,7 @@ class ProductCustomizationPS extends Module
        * that use the swf to do customization and previewing
        */
 
-      $smarty->assign(array(
+      $this->context->smarty->assign(array(
         'fb_app_id' => (Configuration::get('FB_APPID', null, $this->context->shop->id_shop_group, $this->context->shop->id)),
         'product_price' => $product->price,
         'design_id' => (count($product_features) > 0)? $product_features[7]['value']: "",

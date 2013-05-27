@@ -1,9 +1,0 @@
-<!-- Production example -->
-<?xml version="1.0" encoding="UTF-8"?>
-<config
-applicationId="350336068368399"
-baseBackgroundImageURL="http://bg-pb.personera.com/"
-baseBackgroundImageURLTemplate="http://bg-pb.personera.com/{0}.png"
-baseServiceURL="http://photobooks-api.personera.com/personera-rest"
-baseImageUploadURL="http://photobooks-api.personera.com/personera-rest/images/uploadURL/"
-/>

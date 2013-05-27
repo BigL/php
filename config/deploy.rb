@@ -4,9 +4,9 @@ set :repository,  "git@github.com:BigL/#{application}.git"
 # set :scm, :git # You can set :scm explicitly or Capistrano will make an intelligent guess based on known version control directory names
 # Or: `accurev`, `bzr`, `cvs`, `darcs`, `git`, `mercurial`, `perforce`, `subversion` or `none`
 
-role :web, "www.infinitumphp.co.za"                          # Your HTTP server, Apache/etc
-set :home, "/home/infinitu/"
-set :deploy_to,"#{home}public_html/html5"
+role :web, "ec2-54-214-84-158.us-west-2.compute.amazonaws.com"                          # Your HTTP server, Apache/etc
+set :home, "/var/www/"
+set :deploy_to,"#{home}infinitumphp.co.za"
 set :branch, 'master'
 default_run_options[:pty] = true
 #role :app, "your app-server here"                          # This may be the same as your `Web` server
@@ -14,11 +14,11 @@ default_run_options[:pty] = true
 #role :db,  "your slave db-server here"
 
 set :scm,"git"
-set :user,"infinitu"
+set :user,"ubuntu"
 #set :port,"41414"
 #set :scm_passphrase, "10a0609f"
 set :ssh_options,{:forward_agent => true}
-set :use_sudo, false
+set :use_sudo, true
 # if you want to clean up old releases on each deploy uncomment this:
 # after "deploy:restart", "deploy:cleanup"
 
